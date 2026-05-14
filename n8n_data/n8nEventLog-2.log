@@ -1,0 +1,2 @@
+{"__type":"$$EventMessageAudit","id":"72d27796-11bc-4e86-a8c4-49c16192e7d1","ts":"2026-05-14T04:22:09.597-04:00","eventName":"n8n.audit.workflow.activated","message":"n8n.audit.workflow.activated","payload":{"workflowId":"7Kq8RoNmgBRfJuYJ","workflowName":"Test MCP - Hello World","activeVersionId":"526c0f66-6845-4de6-b989-1114b75f74c7","activationMode":"init"}}
+{"__type":"$$EventMessageConfirm","confirm":"72d27796-11bc-4e86-a8c4-49c16192e7d1","ts":"2026-05-14T04:22:09.597-04:00","source":{"id":"0","name":"eventBus"}}

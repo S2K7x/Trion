@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n
+    restart: always
+
+    ports:
+      - "5678:5678"
+
+    environment:
+      # NETWORK
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+
+      # LOCAL ACCESS
+      - N8N_EDITOR_BASE_URL=http://localhost:5678
+      - WEBHOOK_URL=http://localhost:5678/
+
+      # COOKIES
+      - N8N_SECURE_COOKIE=false
+      - N8N_SAMESITE_COOKIE=lax
+
+      # REMOVE FILE RESTRICTIONS
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false
+      - N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES=false
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+
+      # FULL JS ACCESS
+      - NODE_FUNCTION_ALLOW_EXTERNAL=*
+      - NODE_FUNCTION_ALLOW_BUILTIN=*
+
+      # DISABLE TELEMETRY
+      - N8N_DIAGNOSTICS_ENABLED=false
+
+    volumes:
+      - ./n8n_data:/home/node/.n8n
