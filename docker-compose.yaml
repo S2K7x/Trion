@@ -1,39 +1,47 @@
 version: "3.8"
 
+# n8n local — développement (SQLite, pas de queue, accès localhost)
+# Pour le setup production (PostgreSQL + Redis + Worker + Cloudflare),
+# utiliser docker-compose.n8n-prod.yaml
+
 services:
   n8n:
     image: docker.n8n.io/n8nio/n8n:latest
     container_name: n8n
-    restart: always
-
+    restart: unless-stopped
     ports:
       - "5678:5678"
-
     environment:
-      # NETWORK
-      - N8N_HOST=0.0.0.0
-      - N8N_PORT=5678
-      - N8N_PROTOCOL=http
+      # ── Réseau ────────────────────────────────────────────────────────
+      N8N_HOST: "0.0.0.0"
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      N8N_EDITOR_BASE_URL: "http://localhost:5678"
+      WEBHOOK_URL: "http://localhost:5678/"
+      N8N_SECURE_COOKIE: "false"
+      N8N_SAMESITE_COOKIE: lax
 
-      # LOCAL ACCESS
-      - N8N_EDITOR_BASE_URL=http://localhost:5678
-      - WEBHOOK_URL=http://localhost:5678/
+      # ── Task Runner — mode interne (n8n 2.x) ─────────────────────────
+      N8N_RUNNERS_ENABLED: "true"
+      N8N_RUNNERS_MODE: internal
 
-      # COOKIES
-      - N8N_SECURE_COOKIE=false
-      - N8N_SAMESITE_COOKIE=lax
+      # ── Modules autorisés dans les Code nodes ─────────────────────────
+      # Inclut crypto explicitement pour éviter "Module 'crypto' is disallowed"
+      NODE_FUNCTION_ALLOW_BUILTIN: "crypto,path,url,util,os,querystring,stream,buffer,events,assert,zlib,https,http"
+      NODE_FUNCTION_ALLOW_EXTERNAL: "*"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
 
-      # REMOVE FILE RESTRICTIONS
-      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false
-      - N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES=false
-      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      # ── Permissions ───────────────────────────────────────────────────
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "false"
+      N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES: "false"
 
-      # FULL JS ACCESS
-      - NODE_FUNCTION_ALLOW_EXTERNAL=*
-      - NODE_FUNCTION_ALLOW_BUILTIN=*
+      # ── Télémétrie ────────────────────────────────────────────────────
+      N8N_DIAGNOSTICS_ENABLED: "false"
 
-      # DISABLE TELEMETRY
-      - N8N_DIAGNOSTICS_ENABLED=false
+      GENERIC_TIMEZONE: "Europe/Paris"
+      TZ: "Europe/Paris"
 
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./n8n_data:/home/node/.n8n

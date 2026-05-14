@@ -352,6 +352,45 @@ supabase stop    # pour arrêter Supabase local
 
 ---
 
+## Configurer n8n (production)
+
+### Fichiers disponibles
+
+| Fichier | Usage |
+|---------|-------|
+| `docker-compose.yaml` | n8n seul, SQLite, développement local |
+| `docker-compose.n8n-prod.yaml` | Production : PostgreSQL + Redis + Worker + Cloudflare |
+| `.env.n8n.example` | Template de variables d'environnement pour la prod |
+
+### Lancement production
+
+```bash
+cp .env.n8n.example .env
+# → remplir .env
+docker compose -f docker-compose.n8n-prod.yaml up -d
+```
+
+### Problème connu n8n 2.x — `Module 'crypto' is disallowed`
+
+**Cause :** En n8n 2.x, les Code nodes s'exécutent dans un sandbox (task runner). Les modules Node.js natifs (`crypto`, `path`, `url`…) sont bloqués par défaut. En queue mode, les workflows s'exécutent sur le **worker** — la variable `NODE_FUNCTION_ALLOW_BUILTIN` doit donc être présente sur **les deux containers** (`n8n-main` et `n8n-worker`).
+
+**Solution appliquée dans `docker-compose.n8n-prod.yaml` :**
+
+```yaml
+environment:
+  N8N_RUNNERS_ENABLED: "true"
+  N8N_RUNNERS_MODE: internal
+  NODE_FUNCTION_ALLOW_BUILTIN: "crypto,path,url,util,os,querystring,stream,buffer,events,assert,zlib,https,http"
+  NODE_FUNCTION_ALLOW_EXTERNAL: "*"
+  N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+```
+
+Ces variables sont définies dans `x-n8n-common` (YAML anchor) et héritées automatiquement par `n8n-main` et `n8n-worker`.
+
+> **Si tu utilises un setup custom :** vérifier que ces 3 variables sont bien présentes sur le container worker (pas seulement sur le main).
+
+---
+
 ## Configurer Wazuh
 
 Wazuh est la source d'alertes principale de mini-soc. Il collecte les événements des endpoints (Linux, Windows, macOS) et les envoie à n8n via un script d'intégration.
