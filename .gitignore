@@ -34,3 +34,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# n8n local data (SQLite, logs, config — ne pas committer)
+n8n_data/
