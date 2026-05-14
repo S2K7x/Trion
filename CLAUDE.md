@@ -4,7 +4,7 @@
 
 Dashboard SOC (Security Operations Center) en Next.js 14. Affiche en temps réel les alertes de sécurité stockées dans Supabase, visualise les tendances, liste les IOCs malveillants et surveille les workflows d'automatisation n8n.
 
-**Stack :** Next.js 14 · React 18 · TypeScript · Tailwind CSS · Supabase (PostgreSQL) · Recharts · n8n · Jose (JWT)
+**Stack :** Next.js 14 · React 18 · TypeScript · Tailwind CSS · Supabase (PostgreSQL) · Recharts · n8n · Wazuh 4.9 · Jose (JWT)
 
 ---
 
@@ -139,11 +139,43 @@ docker compose up -d
 ## Flows de données
 
 ```
-Alerte externe → n8n (soc-ingest) → Supabase alert_queue
-                                           ↓
-                                  n8n (soc-triage) → enrichissement IOCs
-                                           ↓
-                              Dashboard (polling 30s) ← /api/stats
+Wazuh Agent (endpoint) → Manager:1514
+    → wazuh-integratord → custom-n8n (wazuh/custom-n8n)
+    → POST /webhook/wazuh-ingest
+    → n8n (soc-ingest) → transform (wazuh/n8n-transform.js)
+    → Supabase alert_queue
+         ↓
+    n8n (soc-triage) → enrichissement IOCs, update statut
+         ↓
+    Dashboard (polling 30s) ← /api/stats
 ```
 
 Les 3 workflows n8n surveillés : `soc-ingest`, `soc-triage`, `soc-error-handler`.
+
+---
+
+## Intégration Wazuh
+
+Fichiers dans `wazuh/` :
+
+| Fichier | Rôle |
+|---------|------|
+| `custom-n8n` | Script Python à copier dans `/var/ossec/integrations/` sur le Manager |
+| `ossec-integration.conf` | Bloc XML à ajouter dans `/var/ossec/etc/ossec.conf` |
+| `n8n-transform.js` | Code node n8n (workflow soc-ingest) |
+
+**Ports Wazuh :**
+- `1514` — agents → manager (events)
+- `1515` — agents → manager (enrollment)
+- `55000` — REST API manager
+- `9200` — Indexer (OpenSearch)
+- `443` — Dashboard
+
+**Niveau minimum recommandé** : `7` dans `<level>` (ossec.conf) pour capturer medium+.
+
+**Champs importants de l'alerte Wazuh :**
+- `rule.id`, `rule.level`, `rule.description` → règle déclenchée
+- `agent.name`, `agent.ip` → machine source
+- `data.srcip`, `data.dstip`, `data.url` → IOCs réseau
+- `syscheck.sha256_after`, `syscheck.md5_after` → IOCs fichiers (FIM)
+- `full_log` → log brut original

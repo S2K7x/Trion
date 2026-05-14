@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+"""
+Wazuh custom integration — forward alerts to n8n soc-ingest webhook.
+
+Installation:
+  cp wazuh/custom-n8n /var/ossec/integrations/custom-n8n
+  chmod 750 /var/ossec/integrations/custom-n8n
+  chown root:wazuh /var/ossec/integrations/custom-n8n
+
+ossec.conf (see wazuh/ossec-integration.conf for the full block):
+  <name>custom-n8n</name>
+  <hook_url>http://<n8n-host>:5678/webhook/wazuh-ingest</hook_url>
+  <level>7</level>
+  <alert_format>json</alert_format>
+"""
+
+import sys
+import json
+import logging
+import requests
+
+LOG_FILE = "/var/ossec/logs/integrations.log"
+logging.basicConfig(
+    filename=LOG_FILE,
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+
+def extract_iocs(alert: dict) -> list:
+    """Extract IOC candidates from a Wazuh alert."""
+    iocs = []
+    data = alert.get("data", {})
+    syscheck = alert.get("syscheck", {})
+
+    if data.get("srcip"):
+        iocs.append({"value": data["srcip"], "type": "ip", "verdict": "SUSPICIOUS"})
+    if data.get("dstip"):
+        iocs.append({"value": data["dstip"], "type": "ip", "verdict": "SUSPICIOUS"})
+    if data.get("url"):
+        iocs.append({"value": data["url"], "type": "url", "verdict": "SUSPICIOUS"})
+    if syscheck.get("sha256_after"):
+        iocs.append({"value": syscheck["sha256_after"], "type": "hash", "verdict": "SUSPICIOUS"})
+    if syscheck.get("md5_after"):
+        iocs.append({"value": syscheck["md5_after"], "type": "hash", "verdict": "SUSPICIOUS"})
+
+    # VirusTotal integration result — mark as MALICIOUS
+    vt = data.get("virustotal", {})
+    if vt.get("malicious") and vt.get("source", {}).get("md5"):
+        iocs.append({"value": vt["source"]["md5"], "type": "hash", "verdict": "MALICIOUS"})
+
+    return iocs
+
+
+def build_payload(alert: dict) -> dict:
+    rule = alert.get("rule", {})
+    agent = alert.get("agent", {})
+    data = alert.get("data", {})
+
+    return {
+        "source":      "wazuh",
+        "dedup_key":   f"{alert.get('id', '')}:{agent.get('id', '000')}",
+        "raw_alert":   alert,
+        "rule_id":     rule.get("id"),
+        "rule_level":  rule.get("level", 0),
+        "rule_desc":   rule.get("description"),
+        "agent_name":  agent.get("name"),
+        "agent_ip":    agent.get("ip"),
+        "username":    data.get("srcuser") or data.get("dstuser"),
+        "command":     alert.get("full_log"),
+        "iocs":        extract_iocs(alert),
+    }
+
+
+def main():
+    if len(sys.argv) < 4:
+        logger.error("Usage: custom-n8n <alert_file> <api_key> <hook_url>")
+        sys.exit(1)
+
+    alert_file_path = sys.argv[1]
+    api_key         = sys.argv[2]
+    hook_url        = sys.argv[3]
+
+    try:
+        with open(alert_file_path) as f:
+            alert = json.load(f)
+    except Exception as e:
+        logger.error(f"Failed to read alert file {alert_file_path}: {e}")
+        sys.exit(1)
+
+    payload = build_payload(alert)
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    try:
+        r = requests.post(hook_url, json=payload, headers=headers, timeout=10)
+        r.raise_for_status()
+        logger.info(
+            f"Alert {payload['dedup_key']} rule {payload['rule_id']} "
+            f"level {payload['rule_level']} → HTTP {r.status_code}"
+        )
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Failed to send alert {payload.get('dedup_key')}: {e}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
