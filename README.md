@@ -6,6 +6,43 @@ Dashboard SOC (Security Operations Center) en temps réel. Centralise les alerte
 
 ---
 
+## ⚡ Fast Installation
+
+```bash
+git clone https://github.com/S2K7x/mini-soc.git
+cd mini-soc
+./install.sh
+```
+
+Le script interactif guide toute la configuration en 5 étapes :
+1. Vérifie les prérequis (Docker, Node.js)
+2. Propose un menu pour choisir le mode de lancement
+3. Génère `.env.local` en posant les questions requises (et crée `DASHBOARD_SECRET` automatiquement)
+4. Applique le schéma Supabase (via `supabase` CLI si installée, sinon guide vers le SQL Editor)
+5. Démarre les services
+
+**Modes disponibles dans le script :**
+
+| Option | Commande équivalente |
+|--------|----------------------|
+| `dev` | `npm run dev` + n8n Docker |
+| `prod` | `npm run build && npm start` + n8n Docker |
+| `docker` | `docker build` + `docker run` + n8n Docker |
+| `full` | `docker compose -f docker-compose.full.yaml up -d --build` |
+| `wazuh` | `full` + instructions Wazuh |
+
+**Lancement direct sans menu interactif :**
+```bash
+./install.sh --mode full               # tout en Docker
+./install.sh --mode dev                # développement
+./install.sh --mode full --skip-db     # si le schéma est déjà appliqué
+./install.sh --mode dev --env .env.prod  # utiliser un .env existant
+```
+
+> Le schéma SQL complet est dans [`supabase/migrations/001_init.sql`](supabase/migrations/001_init.sql) — à appliquer une seule fois dans le SQL Editor Supabase si la CLI n'est pas disponible.
+
+---
+
 ## Table des matières
 
 1. [Présentation](#présentation)
