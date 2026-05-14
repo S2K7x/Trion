@@ -1,0 +1,225 @@
+{
+  "name": "soc-ingest",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "soc/ingest",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "ing-1",
+      "name": "Webhook — Receive Wazuh Alert",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        304
+      ],
+      "webhookId": "ee5d835b-d41b-4a4f-9aef-a013b728a70e"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "{\"status\":\"queued\"}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "id": "ing-2",
+      "name": "Respond to Webhook — 200 Queued",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        464,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw  = $input.first().json;\nconst item = raw.body || raw;\nif (!item.rule?.id || item.rule?.level === undefined || !item.agent?.name) {\n  return [];\n}\nif (parseInt(item.rule.level) < 3) return [];\nreturn [{ json: item }];\n"
+      },
+      "id": "ing-3",
+      "name": "Code — Validate Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        688,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw  = $input.first().json;\nconst item = raw.body || raw;\nconst seen = new Set(); const iocs = [];\nconst IP_RE   = /\\b(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\b/g;\nconst HASH_RE = /\\b(?:[a-fA-F0-9]{64}|[a-fA-F0-9]{32})\\b/g;\nconst DOMAIN_RE = /\\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,}\\b/gi;\nfunction addIoc(v,t){const k=t+':'+v.toLowerCase();if(!seen.has(k)){seen.add(k);iocs.push({value:v,type:t});}}\nfunction scan(text){if(!text||typeof text!=='string')return;for(const m of text.matchAll(IP_RE))addIoc(m[0],'ip');for(const m of text.matchAll(HASH_RE))addIoc(m[0],'hash');for(const m of text.matchAll(DOMAIN_RE))addIoc(m[0],'domain');}\n[item.data?.srcip,item.data?.dstip,item.data?.win?.eventdata?.destinationIp,item.agent?.ip].forEach(f=>scan(String(f||'')));\nscan(item.full_log||'');scan(JSON.stringify(item.data||{}));\nreturn [{json:{...item,raw_iocs:iocs}}];\n"
+      },
+      "id": "ing-4",
+      "name": "Code — Extract IOCs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst raw = item.raw_iocs !== undefined ? item : {};\nconst iocSrc = item.raw_iocs || [];\nconst RFC = [/^10\\./,/^172\\.(1[6-9]|2\\d|3[01])\\./,/^192\\.168\\./,/^127\\./,/^::1$/];\nconst NH = 'd41d8cd98f00b204e9800998ecf8427e';\nconst INT = ['.local','.homelab','.internal','.lan'];\nconst iocs = iocSrc.filter(ioc=>{\n  if(ioc.type==='ip')    return !RFC.some(r=>r.test(ioc.value));\n  if(ioc.type==='hash')  return ioc.value.toLowerCase()!==NH;\n  if(ioc.type==='domain')return !INT.some(s=>ioc.value.toLowerCase().endsWith(s));\n  return true;\n});\nconst {raw_iocs,...rest}=item;\nreturn [{json:{...rest,iocs}}];\n"
+      },
+      "id": "ing-5",
+      "name": "Code — Filter Private IOCs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst crypto = require('crypto');\nconst ruleId    = String(item.rule?.id||'');\nconst agentName = String(item.agent?.name||'');\nconst ts = item.timestamp ? Math.floor(new Date(item.timestamp).getTime()/1000/300) : Math.floor(Date.now()/1000/300);\nconst dedup_key = crypto.createHash('sha1').update(ruleId+agentName+ts).digest('hex');\nreturn [{json:{\n  dedup_key, raw_alert:item,\n  rule_id:ruleId, rule_level:parseInt(item.rule?.level||0),\n  rule_desc:item.rule?.description||'',\n  agent_name:agentName, agent_ip:item.agent?.ip||'',\n  username:item.data?.win?.eventdata?.subjectUserName||item.data?.dstuser||'',\n  command:item.data?.win?.eventdata?.commandLine||item.data?.command||'',\n  iocs:item.iocs||[],\n}}];\n"
+      },
+      "id": "ing-6",
+      "name": "Code — Build Dedup Key",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sxlrinzqcolmmmmocoul.supabase.co/rest/v1/alert_queue",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4bHJpbnpxY29sbW1tbW9jb3VsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NjM1NDEsImV4cCI6MjA5NDMzOTU0MX0.cFeNK6DRMuSZVxcNWTWNQ5VoIj-yWxfxmA5_hKtqICs"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4bHJpbnpxY29sbW1tbW9jb3VsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NjM1NDEsImV4cCI6MjA5NDMzOTU0MX0.cFeNK6DRMuSZVxcNWTWNQ5VoIj-yWxfxmA5_hKtqICs"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=ignore-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "ing-7",
+      "name": "Supabase — INSERT alert_queue",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1568,
+        304
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook — Receive Wazuh Alert": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook — 200 Queued",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook — 200 Queued": {
+      "main": [
+        [
+          {
+            "node": "Code — Validate Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code — Validate Payload": {
+      "main": [
+        [
+          {
+            "node": "Code — Extract IOCs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code — Extract IOCs": {
+      "main": [
+        [
+          {
+            "node": "Code — Filter Private IOCs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code — Filter Private IOCs": {
+      "main": [
+        [
+          {
+            "node": "Code — Build Dedup Key",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code — Build Dedup Key": {
+      "main": [
+        [
+          {
+            "node": "Supabase — INSERT alert_queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "27d16815-5f4a-49ea-bab1-67b38510dd36",
+  "meta": {
+    "instanceId": "b75864d93eec333fe72e094db00f54c21404138eb5eda9580d5e9d267aac2852"
+  },
+  "id": "Rsbhkp7zLqzrt8of",
+  "tags": []
+}
