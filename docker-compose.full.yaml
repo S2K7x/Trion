@@ -1,0 +1,43 @@
+version: "3.8"
+
+# Mode full Docker : dashboard + n8n dans des containers
+# La base de données reste sur Supabase cloud.
+#
+# Usage :
+#   cp .env.example .env.local   # remplir les valeurs
+#   docker compose -f docker-compose.full.yaml up -d --build
+
+services:
+
+  dashboard:
+    build: .
+    container_name: mini-soc-dashboard
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file: .env.local
+    depends_on:
+      - n8n
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - N8N_EDITOR_BASE_URL=http://localhost:5678
+      - WEBHOOK_URL=http://localhost:5678/
+      - N8N_SECURE_COOKIE=false
+      - N8N_SAMESITE_COOKIE=lax
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false
+      - N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES=false
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      - NODE_FUNCTION_ALLOW_EXTERNAL=*
+      - NODE_FUNCTION_ALLOW_BUILTIN=*
+      - N8N_DIAGNOSTICS_ENABLED=false
+    volumes:
+      - ./n8n_data:/home/node/.n8n
