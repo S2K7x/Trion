@@ -1,37 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# mini-soc
 
-## Getting Started
+Dashboard SOC (Security Operations Center) en temps réel. Affiche et analyse les alertes de sécurité, visualise les tendances, suit les IOCs malveillants et surveille les workflows d'automatisation n8n.
 
-First, run the development server:
+## Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Frontend** : Next.js 14, React 18, TypeScript, Tailwind CSS, Recharts
+- **Backend** : Supabase (PostgreSQL)
+- **Automatisation** : n8n
+- **Auth** : JWT cookie (mot de passe unique)
+- **Déploiement** : Vercel
+
+## Structure du repo
+
+```
+app/          → Pages et API routes Next.js
+components/   → Composants UI (dashboard, charts, tables)
+lib/          → Client Supabase, requêtes, types TypeScript
+middleware.ts → Protection JWT de toutes les routes
+docker-compose.yaml → n8n en local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Variables d'environnement
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Copier `.env.example` en `.env.local` et remplir :
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | URL du projet Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clé anon Supabase |
+| `SUPABASE_SERVICE_KEY` | Clé service_role (serveur uniquement) |
+| `DASHBOARD_PASSWORD` | Mot de passe d'accès |
+| `DASHBOARD_SECRET` | Clé de signature JWT (32+ chars) |
+| `N8N_API_URL` | URL de l'instance n8n |
+| `N8N_API_KEY` | API key n8n |
 
-## Learn More
+## Développement local
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm install
+cp .env.example .env.local
+# remplir .env.local
+npm run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Pour lancer n8n :
+```bash
+docker compose up -d
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Déploiement Vercel
 
-## Deploy on Vercel
+1. Importer le repo sur [vercel.com](https://vercel.com)
+2. Ajouter les 7 variables d'environnement dans **Project Settings > Environment Variables**
+3. Déployer — aucune config supplémentaire requise
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Base de données
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-# mini-soc
+La table `alert_queue` et les 4 fonctions RPC (`get_error_rate`, `get_dashboard_trend`, `get_top_rules`, `get_top_iocs`) doivent exister dans Supabase. Voir `CLAUDE.md` pour le schéma complet.
+
+## Flow de données
+
+```
+Alerte → n8n (soc-ingest) → Supabase → n8n (soc-triage) → Dashboard
+```
