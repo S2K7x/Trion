@@ -1,6 +1,6 @@
 # mini-soc
 
-**A self-hosted Security Operations Center dashboard** — real-time Wazuh alert triage, automated IOC enrichment via VirusTotal / AbuseIPDB / MalwareBazaar, and instant Discord/Slack notifications. Built as a full end-to-end security pipeline.
+**A self-hosted Security Operations Center dashboard** — real-time Wazuh alert triage, automated IOC enrichment via VirusTotal / AbuseIPDB / MalwareBazaar, AI-powered threat analysis via a local LLM (Ollama/OpenAI/Anthropic), and instant Slack notifications. Built as a full end-to-end security pipeline.
 
 <p align="left">
   <img src="https://img.shields.io/badge/Next.js-14-black?logo=next.js" />
@@ -8,6 +8,8 @@
   <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3ecf8e?logo=supabase&logoColor=white" />
   <img src="https://img.shields.io/badge/Wazuh-4.9-005571" />
   <img src="https://img.shields.io/badge/n8n-automation-ef6c00" />
+  <img src="https://img.shields.io/badge/AI-LangChain%20Agent-7c3aed" />
+  <img src="https://img.shields.io/badge/Ollama-self--hosted%20LLM-0f172a" />
   <img src="https://img.shields.io/badge/Docker-ready-2496ed?logo=docker&logoColor=white" />
   <img src="https://img.shields.io/badge/Vercel-deployable-black?logo=vercel" />
   <img src="https://img.shields.io/badge/demo-live-brightgreen?style=flat-square" alt="Live Demo" />
@@ -33,7 +35,7 @@ mini-soc connects Wazuh agents running on your endpoints to a live dashboard and
 
 1. **Wazuh agents** detect security events (brute-force, privilege escalation, file integrity changes, etc.) on any monitored machine
 2. **soc-ingest** (n8n) receives the webhook, validates and normalises the alert, then inserts it into Supabase with deduplication
-3. **soc-triage** (n8n) picks up pending alerts every 30 seconds, enriches IOCs (IPs, hashes, domains) against three threat intel APIs, and posts a formatted alert to Discord or Slack
+3. **soc-triage** (n8n) picks up pending alerts every 30 seconds, enriches IOCs (IPs, hashes, domains) against three threat intel APIs, runs AI triage for high-severity alerts, and posts a formatted alert card to Slack
 4. **The dashboard** polls `/api/stats` every 30 seconds and displays everything live
 
 ---
@@ -46,6 +48,7 @@ mini-soc connects Wazuh agents running on your endpoints to a live dashboard and
 - **Malicious IOC leaderboard** — top IPs, hashes, and domains flagged MALICIOUS in the last 7 days
 - **Alert table** — paginated (10/page), click any row to inspect the raw Wazuh JSON in a modal
 - **n8n workflow health** — live status of `soc-ingest`, `soc-triage`, `soc-error-handler`
+- **AI triage verdict** — for high-severity alerts (rule_level ≥ 10), an LLM analyses the alert + IOC enrichment and appends a structured verdict (severity, reason, suggested action, confidence) to the Slack notification
 - **JWT authentication** — single-password access, httpOnly cookie, middleware-protected routes
 - **Auto-refresh** — 30-second client-side polling, no WebSocket complexity
 
@@ -85,7 +88,11 @@ mini-soc connects Wazuh agents running on your endpoints to a live dashboard and
         │ AbuseIPDB         │   │  Top Rules · IOC List  │
         │ MalwareBazaar     │   │  Alert Table · n8n     │
         │                   │   │  Status Cards          │
-        │ → Discord / Slack │   └────────────────────────┘
+        │ (rule_level ≥ 10) │   └────────────────────────┘
+        │ AI Agent (LLM)    │
+        │  verdict + reason │
+        │                   │
+        │ → Slack           │
         └───────────────────┘
 ```
 
@@ -101,7 +108,8 @@ mini-soc connects Wazuh agents running on your endpoints to a live dashboard and
 | **Automation** | n8n (self-hosted) — 3 workflows |
 | **Security data** | Wazuh 4.9 — XDR/SIEM agent + manager |
 | **Threat intel** | VirusTotal API, AbuseIPDB API, MalwareBazaar API |
-| **Notifications** | Discord Webhook, Slack |
+| **AI triage** | n8n LangChain AI Agent — Ollama (default), OpenAI, Anthropic |
+| **Notifications** | Slack |
 | **Deployment** | Docker, Docker Compose, Vercel |
 
 ---
@@ -199,28 +207,71 @@ Webhook ← POST /webhook/wazuh-ingest
 
 ### soc-triage
 
-Runs every 30 seconds. Picks up pending alerts, enriches each IOC against three threat intel APIs, posts a formatted alert card to Discord or Slack.
+Runs every 30 seconds. Picks up pending alerts, enriches each IOC against three threat intel APIs, runs AI triage for high-severity alerts, and posts a formatted alert card to Slack.
 
 ```
 Schedule (30s)
   → Reset stuck jobs (processing > 5 min → pending)
   → Fetch pending alerts
-  → Check queue (cap 5/cycle, detect saturation > 50)
+  → Check queue (cap 5/cycle · saturation alert > 50 pending)
   → SplitInBatches: one alert at a time
-      → Init context (loop-break guard: reject non-pending, error bubbles)
+      → Init context (loop-break guard: rejects error bubbles + non-pending items)
       → Mark processing
       → IF Has IOCs?
-          ├─ No  → Format message → Discord → Mark done
-          └─ Yes → SplitInBatches: one IOC at a time
-                     → Rate-limit guard (15s between VT calls)
-                     → IP   → VirusTotal + AbuseIPDB   → verdict
-                     → Hash → VirusTotal + MalwareBazaar → verdict
-                     → Domain → VirusTotal              → verdict
-                 → Format Slack message (all verdicts)
-                 → Slack → Mark done
+          │
+          ├─ No IOCs
+          │    → Build No-IOC Message → Discord → Mark done
+          │
+          └─ Has IOCs
+               → SplitInBatches: one IOC at a time
+                    → VT rate-limit guard (15s between calls — free tier: 4 req/min)
+                    → IP     → VirusTotal + AbuseIPDB       → verdict
+                    → Hash   → VirusTotal + MalwareBazaar   → verdict
+                    → Domain → VirusTotal                   → verdict
+               ↓ all IOCs enriched
+               → IF rule_level >= 10?
+                    │
+                    ├─ Yes (high severity)
+                    │    → Code — Prepare AI Input
+                    │         builds prompt: alert metadata + IOC summary
+                    │         filters malformed IOCs · uses ?? for numeric fields
+                    │    → AI Agent — SOC Triage  (LangChain · continueOnFail: true)
+                    │         sends prompt to LLM · maxIterations: 5
+                    │    → Code — Extract AI Verdict
+                    │         strips markdown fences · parses JSON
+                    │         validates severity/confidence enums
+                    │         stores in sd.aiVerdict or sd.aiError on failure
+                    │    → Build Slack Message (with AI block)
+                    │
+                    └─ No (low severity)
+                         → Build Slack Message (IOC verdicts only)
+
+               → Slack → Mark done
 ```
 
-Possible verdicts: `CLEAN` · `SUSPICIOUS` · `MALICIOUS` · `UNKNOWN` (API unavailable)
+**IOC verdicts:** `CLEAN` · `SUSPICIOUS` · `MALICIOUS` · `UNKNOWN` (API unavailable)
+
+**AI verdict fields:**
+
+| Field | Values |
+|---|---|
+| `severity` | `critical` · `high` · `medium` · `low` |
+| `verdict` | One-sentence threat assessment |
+| `reason` | Specific evidence from enriched IOCs |
+| `suggested_action` | One concrete response action |
+| `confidence` | `high` · `medium` · `low` |
+
+If the LLM is unreachable or returns malformed output, the alert is still delivered to Slack with an `⚠ ai error —` notice — the workflow never blocks.
+
+**Configuring the LLM:**
+
+Open the `LM Chat Model` sub-node inside `AI Agent — SOC Triage` and swap the credential to your preferred provider:
+
+| Provider | n8n node type | Notes |
+|---|---|---|
+| **Ollama** (default) | `lmChatOllama` | Self-hosted — llama3.2, mistral, phi3 |
+| **OpenAI** | `lmChatOpenAi` | gpt-4o-mini recommended |
+| **Anthropic** | `lmChatAnthropic` | claude-haiku-4-5 for speed |
 
 ### soc-error-handler
 

@@ -685,14 +685,14 @@
     },
     {
       "parameters": {
-        "jsCode": "const sd = $getWorkflowStaticData('global');\nconst alert = sd.currentAlert || {};\nconst iocs  = sd.enrichedIocs || [];\nsd.enrichedIocs  = [];\nsd.currentAlert  = null;\n// Safety: if alert has no id, bail \u2014 don't send garbled Slack message\nif (!alert.id) return [{ json: { _skipped: true } }];\nconst level  = parseInt(alert.rule_level ?? 0, 10);\nconst prefix = level >= 12 ? '[CRITICAL]' : level >= 8 ? '[HIGH]' : level >= 5 ? '[MEDIUM]' : '[LOW]';\nconst title  = alert.rule_desc || `Rule ${alert.rule_id || 'unknown'}`;\nconst sep    = '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500';\nconst ts     = new Date().toISOString().replace('T',' ').slice(0,19) + ' UTC';\nlet iocBlock = iocs.length === 0 ? '\\nno external ioc detected' : '\\nioc enrichment';\nfor (const ioc of iocs) {\n  iocBlock += `\\n  ${ioc.value}`;\n  const errNote = ioc.vt_error ? ' (vt unavailable)' : '';\n  if (ioc.type === 'ip') {\n    iocBlock += `\\n    vt       : ${ioc.vt_malicious}/${ioc.vt_total}  \u2190 ${ioc.verdict}${errNote}`;\n    if (ioc.abuse_confidence !== undefined) iocBlock += `\\n    abuse    : ${ioc.abuse_confidence}%`;\n  } else if (ioc.type === 'hash') {\n    iocBlock += `\\n    vt       : ${ioc.vt_malicious}/${ioc.vt_total}  \u2190 ${ioc.verdict}${errNote}`;\n    if (ioc.mwbazaar_found) iocBlock += `\\n    mwbazaar : known malware`;\n  } else if (ioc.type === 'domain') {\n    iocBlock += `\\n    vt       : ${ioc.vt_malicious}/${ioc.vt_total}  \u2190 ${ioc.verdict}${errNote}`;\n  }\n}\nconst lines = [\n  `${prefix} ${title}`, sep,\n  `rule_id   : ${alert.rule_id   || 'n/a'}`,\n  `agent     : ${alert.agent_name || 'n/a'} (${alert.agent_ip || 'n/a'})`,\n  alert.username ? `user      : ${alert.username}` : null,\n  alert.command  ? `command   : ${alert.command}`  : null,\n  iocBlock, '',\n  `${ts} \u00b7 mini-soc/wazuh`,\n].filter(l => l !== null);\nreturn [{ json: { text: '```\\n' + lines.join('\\n') + '\\n```', alert_id: alert.id } }];\n"
+        "jsCode": "const sd = $getWorkflowStaticData('global');\nconst alert = sd.currentAlert || {};\nconst iocs  = sd.enrichedIocs || [];\nconst av    = sd.aiVerdict || null;\nconst aiErr = sd.aiError   || null;\nsd.enrichedIocs = [];\nsd.currentAlert = null;\nsd.aiVerdict    = null;\nsd.aiError      = null;\n// Safety: if alert has no id, bail\nif (!alert.id) return [{ json: { _skipped: true } }];\nconst level  = parseInt(alert.rule_level ?? 0, 10);\nconst prefix = level >= 12 ? '[CRITICAL]' : level >= 8 ? '[HIGH]' : level >= 5 ? '[MEDIUM]' : '[LOW]';\nconst title  = alert.rule_desc || `Rule ${alert.rule_id || 'unknown'}`;\nconst sep    = '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500';\nconst ts     = new Date().toISOString().replace('T',' ').slice(0,19) + ' UTC';\nlet iocBlock = iocs.length === 0 ? '\\nno external ioc detected' : '\\nioc enrichment';\nfor (const ioc of iocs) {\n  iocBlock += `\\n  ${ioc.value}`;\n  const errNote = ioc.vt_error ? ' (vt unavailable)' : '';\n  if (ioc.type === 'ip') {\n    iocBlock += `\\n    vt       : ${ioc.vt_malicious}/${ioc.vt_total}  \u2190 ${ioc.verdict}${errNote}`;\n    if (ioc.abuse_confidence !== undefined) iocBlock += `\\n    abuse    : ${ioc.abuse_confidence}%`;\n  } else if (ioc.type === 'hash') {\n    iocBlock += `\\n    vt       : ${ioc.vt_malicious}/${ioc.vt_total}  \u2190 ${ioc.verdict}${errNote}`;\n    if (ioc.mwbazaar_found) iocBlock += `\\n    mwbazaar : known malware`;\n  } else if (ioc.type === 'domain') {\n    iocBlock += `\\n    vt       : ${ioc.vt_malicious}/${ioc.vt_total}  \u2190 ${ioc.verdict}${errNote}`;\n  }\n}\n// AI verdict block \u2014 success / error / silent skip\nlet aiBlock = null;\nif (av && typeof av === 'object') {\n  aiBlock = [\n    '',\n    '\u2500\u2500 ai verdict \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500',\n    `  severity   : ${av.severity || '?'}`,\n    `  verdict    : ${av.verdict || '?'}`,\n    `  reason     : ${av.reason || '?'}`,\n    `  action     : ${av.suggested_action || '?'}`,\n    `  confidence : ${av.confidence || '?'}`,\n  ].join('\\n');\n} else if (aiErr) {\n  aiBlock = '\\n\u2500\u2500 ai verdict \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\\n  status : \u26a0 ai error \u2014 ' + aiErr;\n}\nconst lines = [\n  `${prefix} ${title}`, sep,\n  `rule_id   : ${alert.rule_id   || 'n/a'}`,\n  `agent     : ${alert.agent_name || 'n/a'} (${alert.agent_ip || 'n/a'})`,\n  alert.username ? `user      : ${alert.username}` : null,\n  alert.command  ? `command   : ${alert.command}`  : null,\n  iocBlock,\n  aiBlock,\n  '',\n  `${ts} \u00b7 mini-soc/wazuh`,\n].filter(l => l !== null);\nreturn [{ json: { text: '```\\n' + lines.join('\\n') + '\\n```', alert_id: alert.id } }];\n"
       },
       "id": "3f79bc70-d3fa-4c6d-9aa8-30f264e34114",
       "name": "Code \u2014 Build Slack Message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2416,
+        3312,
         592
       ]
     },
@@ -716,7 +716,7 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        2640,
+        3536,
         592
       ],
       "webhookId": "db8d70f8-cd24-4ccb-84e5-b4e1ef69f2ad",
@@ -769,14 +769,14 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        2864,
+        3760,
         592
       ],
       "continueOnFail": true
     },
     {
       "parameters": {
-        "content": "## soc-triage \u2014 Alert Triage & IOC Enrichment\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n**TRIGGER**   Schedule every 30s\n**OUTPUT**    Discord/Slack alert card per alert + Supabase status update\n**DEPENDS ON** soc-ingest (inserts alerts) \u00b7 Supabase alert_queue \u00b7 VirusTotal \u00b7 AbuseIPDB \u00b7 MalwareBazaar\n**AUTHOR**    S2K7x  \u00b7  **UPDATED** 2026-05\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n**PIPELINE**\n`Supabase (pending)` \u2192 `Check Queue` \u2192 `SplitInBatches Per Alert` \u2192 `Init Context` \u2192 `IF Has IOCs?`\n  \u251c\u2500 No IOC  \u2192 `Build No-IOC Message` \u2192 `Discord` \u2192 `Mark Done`\n  \u2514\u2500 Has IOC \u2192 `SplitInBatches Per IOC` \u2192 `VT + AbuseIPDB / MalwareBazaar` \u2192 `Build Slack` \u2192 `Slack` \u2192 `Mark Done`\n",
+        "content": "## soc-triage \u2014 Alert Triage, IOC Enrichment & AI Analysis\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n**TRIGGER**   Schedule every 30s\n**OUTPUT**    Slack alert card per alert (with AI verdict for rule_level \u2265 10) + Supabase status update\n**DEPENDS ON** soc-ingest \u00b7 Supabase alert_queue \u00b7 VirusTotal \u00b7 AbuseIPDB \u00b7 MalwareBazaar \u00b7 Ollama (LLM)\n**AUTHOR**    S2K7x  \u00b7  **UPDATED** 2026-05\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n**PIPELINE**\n`Supabase (pending)` \u2192 `Check Queue` \u2192 `SplitInBatches Per Alert` \u2192 `Init Context` \u2192 `IF Has IOCs?`\n  \u251c\u2500 No IOC  \u2192 `Build No-IOC Message` \u2192 `Discord` \u2192 `Mark Done`\n  \u2514\u2500 Has IOC \u2192 `SplitInBatches Per IOC` \u2192 `VT + AbuseIPDB / MalwareBazaar` \u2192 `IF rule_level \u2265 10?`\n               \u251c\u2500 Yes \u2192 `Prepare AI Input` \u2192 `AI Agent` \u2192 `Extract AI Verdict` \u2192 `Build Slack` \u2192 `Slack` \u2192 `Mark Done`\n               \u2514\u2500 No  \u2192 `Build Slack` \u2192 `Slack` \u2192 `Mark Done`",
         "height": 340,
         "width": 4220,
         "color": 7
@@ -888,7 +888,7 @@
     },
     {
       "parameters": {
-        "content": "## 6 \u2014 Final Output (with IOCs)\n**Code \u2014 Build Slack Message**:\n- Reads `sd.currentAlert` + `sd.enrichedIocs`\n- Clears `sd` after use to avoid stale data in the next cycle\n- Bail-out if `alert.id` is missing \u2192 returns `{ _skipped: true }`\n\n\u2192 **Slack**: enriched alert card with all IOC verdicts\n\u2192 **Supabase**: sets `status = 'done'`\n",
+        "content": "## 6 \u2014 AI Triage + Final Output (with IOCs)\n\n**IF \u2014 Rule Level >= 10?** gates the AI chain.\n\u2192 `true`  (high-severity): runs AI triage before Slack notification\n\u2192 `false` (low-severity):  skips AI, goes directly to Build Slack Message\n\n**AI Triage chain** (rule_level \u2265 10 only):\n1. `Code \u2014 Prepare AI Input` \u2014 formats alert metadata + IOC enrichment summary into an LLM prompt. Filters malformed IOCs. Uses `sd.currentAlert` + `sd.enrichedIocs`.\n2. `AI Agent \u2014 SOC Triage` \u2014 sends prompt to LLM (LangChain). `continueOnFail: true` so Ollama timeouts never block the workflow. `maxIterations: 5`.\n3. `Code \u2014 Extract AI Verdict` \u2014 strips markdown fences, parses JSON, validates enum fields (`severity`, `confidence`). Stores result in `sd.aiVerdict` or error in `sd.aiError`.\n\n**Code \u2014 Build Slack Message**:\n- Reads `sd.currentAlert` + `sd.enrichedIocs` + `sd.aiVerdict` / `sd.aiError`\n- Clears all `sd` keys after use to avoid stale data in the next cycle\n- Bail-out if `alert.id` is missing \u2192 returns `{ _skipped: true }`\n- AI block in Slack: shows verdict if available, `\u26a0 ai error \u2014 <reason>` if LLM failed, absent if rule_level < 10\n\n\u2192 **Slack**: enriched alert card with all IOC verdicts + AI analysis block\n\u2192 **Supabase**: sets `status = 'done'`",
         "height": 230,
         "width": 660,
         "color": 2
@@ -900,6 +900,121 @@
       "position": [
         2360,
         450
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "ai-rule-check",
+              "leftValue": "={{ $getWorkflowStaticData('global').currentAlert?.rule_level ?? 0 }}",
+              "rightValue": 10,
+              "operator": {
+                "type": "number",
+                "operation": "largerEqual"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "fa1e2d3c-0001-4b5a-9c6d-7e8f9a0b1c2d",
+      "name": "IF \u2014 Rule Level >= 10?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2416,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sd = $getWorkflowStaticData('global');\nconst alert = sd.currentAlert || {};\nconst iocs = sd.enrichedIocs || [];\nconst iocSummary = iocs\n  .filter(ioc => ioc && ioc.type && ioc.value)\n  .map(ioc => {\n    const t = String(ioc.type).toLowerCase();\n    let s = `- ${t.toUpperCase()} ${ioc.value}: verdict=${ioc.verdict || 'UNKNOWN'}`;\n    if (t === 'ip')     s += `, VT=${ioc.vt_malicious ?? 'N/A'}/${ioc.vt_total ?? 'N/A'}, AbuseIPDB=${ioc.abuse_confidence ?? 'N/A'}%`;\n    if (t === 'hash')   s += `, VT=${ioc.vt_malicious ?? 'N/A'}/${ioc.vt_total ?? 'N/A'}, MalwareBazaar=${ioc.mwbazaar_found ? 'found' : 'not found'}`;\n    if (t === 'domain') s += `, VT=${ioc.vt_malicious ?? 'N/A'}/${ioc.vt_total ?? 'N/A'}`;\n    return s;\n  }).join('\\n') || 'no IOCs detected';\nconst text = [\n  `Wazuh Alert: ${alert.rule_desc || 'unknown'} (rule_id: ${alert.rule_id || 'n/a'}, level: ${alert.rule_level || 0})`,\n  `Agent: ${alert.agent_name || 'n/a'} (${alert.agent_ip || 'n/a'})`,\n  alert.username ? `User: ${alert.username}` : null,\n  alert.command  ? `Command: ${alert.command}` : null,\n  '', 'IOCs analyzed:', iocSummary,\n  '',\n  'Output ONLY a JSON object with these exact fields, no markdown, no code fences, no prose:',\n  '{\"severity\":\"critical|high|medium|low\",\"verdict\":\"one sentence\",\"reason\":\"evidence from IOCs\",\"suggested_action\":\"one concrete action\",\"confidence\":\"high|medium|low\"}',\n].filter(l => l !== null).join('\\n');\nreturn [{ json: { ai_input: text } }];\n"
+      },
+      "id": "fa1e2d3c-0002-4b5a-9c6d-7e8f9a0b1c2d",
+      "name": "Code \u2014 Prepare AI Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "agent": "conversationalAgent",
+        "promptType": "define",
+        "text": "={{ $json.ai_input }}",
+        "options": {
+          "systemMessage": "You are a senior SOC analyst specializing in threat intelligence triage.\n\nYour task: analyze the provided Wazuh alert data and IOC enrichment results, then produce a structured verdict.\n\nRULES:\n- Output ONLY a valid JSON object. No markdown. No code fences (```). No prose.\n- Do not include any text before or after the JSON.\n- Keep each string field concise (max 25 words).\n- severity must be exactly one of: critical, high, medium, low\n- confidence must be exactly one of: high, medium, low",
+          "maxIterations": 5
+        }
+      },
+      "id": "fa1e2d3c-0003-4b5a-9c6d-7e8f9a0b1c2d",
+      "name": "AI Agent \u2014 SOC Triage",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        2864,
+        400
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "model": "llama3.2",
+        "options": {}
+      },
+      "id": "fa1e2d3c-0004-4b5a-9c6d-7e8f9a0b1c2d",
+      "name": "LM Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        2864,
+        192
+      ],
+      "credentials": {
+        "ollamaApi": {
+          "id": "Fwyf9nBKTHvfh1OT",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const sd = $getWorkflowStaticData('global');\nconst input = $input.first().json;\n\n// 1. AI Agent failed (continueOnFail routes error here)\nif (input.error) {\n  sd.aiVerdict = null;\n  sd.aiError   = String(input.error.message || 'AI Agent failed').slice(0, 100);\n  return [{ json: { loop_continue: true } }];\n}\n\n// 2. Strip markdown code fences\nconst raw = String(input?.output || '');\nconst cleaned = raw.replace(/```json\\s*/gi, '').replace(/```\\s*/g, '').trim();\n\n// 3. Parse \u2014 attempt 1: direct, attempt 2: extract first {severity} block\nlet verdict = null;\ntry {\n  verdict = JSON.parse(cleaned);\n} catch {\n  const match = cleaned.match(/\\{[^{}]*\"severity\"[^{}]*\\}/s);\n  if (match) { try { verdict = JSON.parse(match[0]); } catch {} }\n}\n\n// 4. Validate fields and enum values\nconst REQUIRED    = ['severity', 'verdict', 'reason', 'suggested_action', 'confidence'];\nconst SEVERITIES  = ['critical', 'high', 'medium', 'low'];\nconst CONFIDENCES = ['high', 'medium', 'low'];\n\nif (verdict && typeof verdict === 'object') {\n  const missing = REQUIRED.filter(k => !verdict[k]);\n  verdict.severity   = String(verdict.severity   || '').toLowerCase();\n  verdict.confidence = String(verdict.confidence || '').toLowerCase();\n  if (!SEVERITIES.includes(verdict.severity))   verdict.severity   = 'low';\n  if (!CONFIDENCES.includes(verdict.confidence)) verdict.confidence = 'low';\n  if (missing.length > 2) {\n    sd.aiError = `AI verdict incomplete (missing: ${missing.join(', ')})`;\n    verdict = null;\n  }\n}\n\nsd.aiVerdict = verdict || null;\nif (!verdict && !sd.aiError) sd.aiError = 'AI returned unparseable output';\nreturn [{ json: { loop_continue: true } }];\n"
+      },
+      "id": "fa1e2d3c-0005-4b5a-9c6d-7e8f9a0b1c2d",
+      "name": "Code \u2014 Extract AI Verdict",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3088,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 7 \u2014 AI Agent \u2014 Configuration & Best Practices\n\n### What the AI chain produces\nFor every alert with `rule_level \u2265 10`, the LLM receives a structured prompt (alert + IOC verdicts) and returns:\n```\n{\n  \"severity\":         \"critical | high | medium | low\",\n  \"verdict\":          \"one-sentence threat assessment\",\n  \"reason\":           \"specific evidence from IOCs\",\n  \"suggested_action\": \"one concrete response action\",\n  \"confidence\":       \"high | medium | low\"\n}\n```\n\n### Nodes in this chain\n| Node | Role |\n|------|------|\n| `Code \u2014 Prepare AI Input` | Builds the prompt. Filters `null` IOCs. Uses `??` for numeric fields (0 is valid). |\n| `AI Agent \u2014 SOC Triage` | Sends prompt via LangChain. `continueOnFail: true` \u00b7 `maxIterations: 5`. |\n| `LM Chat Model` | **\u2190 plug your model here**. Currently: Ollama / llama3.2. |\n| `Code \u2014 Extract AI Verdict` | Strips ` ``` ` fences, parses JSON, normalises enums to lowercase, validates required fields. |\n\n### Change the LLM\nDouble-click **LM Chat Model** and swap the credential / node type:\n\n| Provider | n8n node type | Notes |\n|----------|--------------|-------|\n| **Ollama** (current) | `lmChatOllama` | Self-hosted \u00b7 llama3.2, mistral, phi3 |\n| **OpenAI** | `lmChatOpenAi` | gpt-4o-mini recommended (cost vs quality) |\n| **Anthropic** | `lmChatAnthropic` | claude-haiku-4-5 for speed |\n\n### Error handling\nIf the LLM is unreachable, times out, or returns unparseable output:\n- `sd.aiVerdict` is set to `null`\n- `sd.aiError` stores the reason (max 100 chars)\n- The workflow **continues** \u2014 Slack message shows `\u26a0 ai error \u2014 <reason>`\n- The alert is still marked `done` in Supabase (no data loss)",
+        "height": 200,
+        "width": 440,
+        "color": 5
+      },
+      "id": "fa1e2d3c-0006-4b5a-9c6d-7e8f9a0b1c2d",
+      "name": "Sticky Note \u2014 AI Config",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2640,
+        50
       ]
     }
   ],
@@ -1073,7 +1188,7 @@
         ],
         [
           {
-            "node": "Code \u2014 Build Slack Message",
+            "node": "IF \u2014 Rule Level >= 10?",
             "type": "main",
             "index": 0
           }
@@ -1210,6 +1325,68 @@
           {
             "node": "SplitInBatches \u2014 Per IOC",
             "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF \u2014 Rule Level >= 10?": {
+      "main": [
+        [
+          {
+            "node": "Code \u2014 Prepare AI Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code \u2014 Build Slack Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code \u2014 Prepare AI Input": {
+      "main": [
+        [
+          {
+            "node": "AI Agent \u2014 SOC Triage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent \u2014 SOC Triage": {
+      "main": [
+        [
+          {
+            "node": "Code \u2014 Extract AI Verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code \u2014 Extract AI Verdict": {
+      "main": [
+        [
+          {
+            "node": "Code \u2014 Build Slack Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LM Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent \u2014 SOC Triage",
+            "type": "ai_languageModel",
             "index": 0
           }
         ]
