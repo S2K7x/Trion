@@ -1,12 +1,12 @@
 'use client'
 
 interface HeaderProps {
-  lastUpdate: Date
+  lastUpdate?: Date
   onLogout: () => void
 }
 
 export function Header({ lastUpdate, onLogout }: HeaderProps) {
-  const timeStr = lastUpdate.toLocaleTimeString('en-GB', {
+  const timeStr = lastUpdate?.toLocaleTimeString('en-GB', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
@@ -51,9 +51,11 @@ export function Header({ lastUpdate, onLogout }: HeaderProps) {
       </div>
 
       {/* Sync time */}
-      <div className="font-mono text-[11px]" style={{ color: 'var(--muted)' }}>
-        {timeStr}
-      </div>
+      {timeStr && (
+        <div className="font-mono text-[11px]" style={{ color: 'var(--muted)' }}>
+          {timeStr}
+        </div>
+      )}
 
       {/* Logout as avatar button */}
       <button

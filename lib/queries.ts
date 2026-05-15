@@ -1,6 +1,7 @@
 import { createServerSupabase } from './supabase-server'
 import type {
   AlertRecord,
+  AlertStatus,
   DashboardCounters,
   TrendPoint,
   TopRule,
@@ -134,4 +135,131 @@ export async function getDashboardStats(): Promise<StatsResponse> {
     top_iocs: (topIocsRes.data as TopIoc[] | null) ?? [],
     workflows,
   }
+}
+
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+const ALERT_SELECT =
+  'id, created_at, rule_id, rule_desc, rule_level, agent_name, agent_ip, username, command, iocs, raw_alert, status, retry_count, processed_at'
+
+function rangeToDate(range?: string): string {
+  const ms =
+    range === '1h' ? 3_600_000
+    : range === '7d' ? 7 * 86_400_000
+    : range === '30d' ? 30 * 86_400_000
+    : 86_400_000 // default 24h
+  return new Date(Date.now() - ms).toISOString()
+}
+
+// ─── exported query functions ─────────────────────────────────────────────────
+
+export interface AlertFilters {
+  page?: number
+  pageSize?: number
+  severity?: string
+  status?: string
+  q?: string
+  range?: string
+}
+
+export async function getAlertsPaginated(
+  opts: AlertFilters = {}
+): Promise<{ alerts: AlertRecord[]; total: number }> {
+  const supabase = createServerSupabase()
+  const { page = 0, pageSize = 25, severity, status, q, range } = opts
+  const since = rangeToDate(range)
+
+  // eslint-disable-next-line prefer-const
+  let query = supabase
+    .from('alert_queue')
+    .select(ALERT_SELECT, { count: 'exact' })
+    .gt('created_at', since)
+    .order('created_at', { ascending: false })
+
+  if (status && status !== 'all') {
+    query = query.eq('status', status as AlertStatus)
+  }
+  if (q) {
+    query = query.or(`rule_desc.ilike.%${q}%,rule_id.ilike.%${q}%,agent_name.ilike.%${q}%`)
+  }
+  if (severity && severity !== 'all') {
+    if (severity === 'critical') query = query.gte('rule_level', 15)
+    else if (severity === 'high') query = query.gte('rule_level', 12).lte('rule_level', 14)
+    else if (severity === 'medium') query = query.gte('rule_level', 7).lte('rule_level', 11)
+    else if (severity === 'low') query = query.lte('rule_level', 6)
+  }
+
+  query = query.range(page * pageSize, (page + 1) * pageSize - 1)
+
+  const { data, count, error } = await query
+  if (error) console.error('[queries:alerts-paginated]', error.message)
+
+  return {
+    alerts: (data as AlertRecord[] | null) ?? [],
+    total: count ?? 0,
+  }
+}
+
+export async function getTopIocs(): Promise<TopIoc[]> {
+  const supabase = createServerSupabase()
+  const { data, error } = await supabase.rpc('get_top_iocs')
+  if (error) console.error('[queries:top-iocs]', error.message)
+  return (data as TopIoc[] | null) ?? []
+}
+
+export async function getWorkflows(): Promise<WorkflowStatus[]> {
+  return fetchWorkflows()
+}
+
+export async function getTimeline(opts: { range?: string } = {}): Promise<AlertRecord[]> {
+  const supabase = createServerSupabase()
+  const since = rangeToDate(opts.range)
+  const { data, error } = await supabase
+    .from('alert_queue')
+    .select(ALERT_SELECT)
+    .gt('created_at', since)
+    .order('created_at', { ascending: false })
+    .limit(200)
+  if (error) console.error('[queries:timeline]', error.message)
+  return (data as AlertRecord[] | null) ?? []
+}
+
+export async function searchReputation(indicator: string): Promise<{
+  matches: AlertRecord[]
+  verdict: string | null
+  ioc_type: string | null
+}> {
+  if (!indicator.trim()) return { matches: [], verdict: null, ioc_type: null }
+
+  const supabase = createServerSupabase()
+  // Use PostgREST 'cs' operator = JSONB @> (contains)
+  const { data, error } = await supabase
+    .from('alert_queue')
+    .select(ALERT_SELECT)
+    .filter('iocs', 'cs', JSON.stringify([{ value: indicator }]))
+    .order('created_at', { ascending: false })
+    .limit(50)
+  if (error) console.error('[queries:reputation]', error.message)
+
+  const matches = (data as AlertRecord[] | null) ?? []
+  let verdict: string | null = null
+  let ioc_type: string | null = null
+  for (const alert of matches) {
+    const ioc = alert.iocs?.find((i) => i.value === indicator)
+    if (ioc) {
+      verdict = ioc.verdict ?? null
+      ioc_type = ioc.type ?? null
+      break
+    }
+  }
+  return { matches, verdict, ioc_type }
+}
+
+export async function getQueueDepth(): Promise<number> {
+  const supabase = createServerSupabase()
+  const { count } = await supabase
+    .from('alert_queue')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'pending')
+  return count ?? 0
 }
