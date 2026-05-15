@@ -1,20 +1,29 @@
 import { SignJWT } from 'jose'
-import { timingSafeEqual } from 'crypto'
+import { createHash, timingSafeEqual } from 'crypto'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
+// Hash both strings to fixed-length SHA-256 digests before constant-time comparison.
+// This prevents the timing side-channel that leaks password length when comparing raw strings.
 function safeCompare(a: string, b: string): boolean {
   try {
-    const aBuf = Buffer.from(a)
-    const bBuf = Buffer.from(b)
-    if (aBuf.length !== bBuf.length) return false
-    return timingSafeEqual(aBuf, bBuf)
+    const aHash = createHash('sha256').update(a, 'utf8').digest()
+    const bHash = createHash('sha256').update(b, 'utf8').digest()
+    return timingSafeEqual(aHash, bHash)
   } catch {
     return false
   }
 }
 
 export async function POST(request: NextRequest) {
+  const dashboardPassword = process.env.DASHBOARD_PASSWORD
+  const dashboardSecret = process.env.DASHBOARD_SECRET
+
+  if (!dashboardPassword || !dashboardSecret) {
+    console.error('[auth] DASHBOARD_PASSWORD or DASHBOARD_SECRET env var is not set')
+    return NextResponse.json({ error: 'Server misconfiguration' }, { status: 503 })
+  }
+
   let body: unknown
   try {
     body = await request.json()
@@ -22,14 +31,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  const { password } = body as { password?: string }
-  const expected = process.env.DASHBOARD_PASSWORD ?? ''
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+  }
 
-  if (!password || !safeCompare(password, expected)) {
+  const { password } = body as { password?: unknown }
+
+  if (typeof password !== 'string' || !password) {
     return NextResponse.json({ error: 'Invalid password' }, { status: 401 })
   }
 
-  const secret = new TextEncoder().encode(process.env.DASHBOARD_SECRET!)
+  if (!safeCompare(password, dashboardPassword)) {
+    return NextResponse.json({ error: 'Invalid password' }, { status: 401 })
+  }
+
+  const secret = new TextEncoder().encode(dashboardSecret)
   const token = await new SignJWT({ sub: 'dashboard' })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()

@@ -11,12 +11,18 @@ import type {
 
 const WORKFLOW_NAMES = ['soc-ingest', 'soc-triage', 'soc-error-handler']
 
+const FALLBACK_WORKFLOWS: WorkflowStatus[] = WORKFLOW_NAMES.map((name) => ({
+  name,
+  active: false,
+  last_exec: null,
+}))
+
 async function fetchWorkflows(): Promise<WorkflowStatus[]> {
   const apiUrl = process.env.N8N_API_URL
   const apiKey = process.env.N8N_API_KEY
 
   if (!apiUrl || !apiKey) {
-    return WORKFLOW_NAMES.map((name) => ({ name, active: false, last_exec: null }))
+    return FALLBACK_WORKFLOWS
   }
 
   try {
@@ -39,8 +45,9 @@ async function fetchWorkflows(): Promise<WorkflowStatus[]> {
         last_exec: wf?.updatedAt ?? null,
       }
     })
-  } catch {
-    return WORKFLOW_NAMES.map((name) => ({ name, active: false, last_exec: null }))
+  } catch (err) {
+    console.error('[queries:workflows]', err instanceof Error ? err.message : err)
+    return FALLBACK_WORKFLOWS
   }
 }
 
@@ -59,32 +66,26 @@ export async function getDashboardStats(): Promise<StatsResponse> {
     topIocsRes,
     workflows,
   ] = await Promise.all([
-    // today count
     supabase
       .from('alert_queue')
       .select('*', { count: 'exact', head: true })
       .gt('created_at', since24h),
 
-    // queue depth
     supabase
       .from('alert_queue')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'pending'),
 
-    // critical 24h
     supabase
       .from('alert_queue')
       .select('*', { count: 'exact', head: true })
       .gte('rule_level', 12)
       .gt('created_at', since24h),
 
-    // error rate via RPC
     supabase.rpc('get_error_rate'),
 
-    // trend via RPC
     supabase.rpc('get_dashboard_trend'),
 
-    // recent alerts
     supabase
       .from('alert_queue')
       .select(
@@ -93,22 +94,36 @@ export async function getDashboardStats(): Promise<StatsResponse> {
       .order('created_at', { ascending: false })
       .limit(50),
 
-    // top rules via RPC
     supabase.rpc('get_top_rules'),
 
-    // top IOCs via RPC
     supabase.rpc('get_top_iocs'),
 
-    // n8n workflows
     fetchWorkflows(),
   ])
+
+  // Log any Supabase-level errors for observability — fallbacks below keep the dashboard functional.
+  const labeledResults: Array<[string, { error: { message: string } | null }]> = [
+    ['today', todayRes],
+    ['queue', queueRes],
+    ['critical', criticalRes],
+    ['error-rate', errorRateRes],
+    ['trend', trendRes],
+    ['recent', recentRes],
+    ['top-rules', topRulesRes],
+    ['top-iocs', topIocsRes],
+  ]
+  for (const [label, res] of labeledResults) {
+    if (res.error) {
+      console.error(`[queries:${label}] ${res.error.message}`)
+    }
+  }
 
   const counters: DashboardCounters = {
     today: todayRes.count ?? 0,
     queue_depth: queueRes.count ?? 0,
     critical: criticalRes.count ?? 0,
-    error_rate: (errorRateRes.data as Array<{ error_rate: number | null }> | null)?.[0]
-      ?.error_rate ?? 0,
+    error_rate:
+      (errorRateRes.data as Array<{ error_rate: number | null }> | null)?.[0]?.error_rate ?? 0,
   }
 
   return {
