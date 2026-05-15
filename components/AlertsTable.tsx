@@ -1,34 +1,17 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import type { AlertRecord, AlertStatus } from '@/lib/types'
+import type { AlertRecord } from '@/lib/types'
+import { levelToSeverity } from '@/lib/design'
+import { StatusBadge } from '@/components/primitives/StatusBadge'
+import { SeverityChip } from '@/components/primitives/SeverityChip'
+import { IocPill } from '@/components/primitives/IocPill'
 
 interface AlertsTableProps {
   alerts: AlertRecord[]
 }
 
 const PAGE_SIZE = 10
-
-interface Severity {
-  label: string
-  color: string
-  dotClass: string
-}
-
-function levelToSeverity(level: number | null): Severity {
-  if (level == null) return { label: 'UNK', color: 'var(--muted)', dotClass: '' }
-  if (level >= 15) return { label: 'CRITICAL', color: 'var(--red)', dotClass: 'severity-critical-glow' }
-  if (level >= 12) return { label: 'HIGH', color: 'var(--orange)', dotClass: '' }
-  if (level >= 7)  return { label: 'MEDIUM', color: 'var(--yellow)', dotClass: '' }
-  return { label: 'LOW', color: 'var(--green)', dotClass: '' }
-}
-
-const STATUS_STYLES: Record<AlertStatus, { bg: string; color: string; symbol: string }> = {
-  pending:    { bg: 'var(--yellow-dim)', color: 'var(--yellow)',  symbol: '○' },
-  processing: { bg: 'var(--accent-dim)', color: 'var(--accent)',  symbol: '●' },
-  done:       { bg: 'var(--green-dim)',  color: 'var(--green)',   symbol: '✓' },
-  error:      { bg: 'var(--red-dim)',    color: 'var(--red)',     symbol: '✕' },
-}
 
 function formatTime(iso: string): string {
   try {
@@ -39,27 +22,12 @@ function formatTime(iso: string): string {
   } catch { return iso }
 }
 
-
-function StatusBadge({ status }: { status: AlertStatus }) {
-  const s = STATUS_STYLES[status] ?? { bg: 'transparent', color: 'var(--muted)', symbol: '?' }
-  return (
-    <span
-      className="inline-flex items-center gap-1 font-mono text-[10px] font-medium tracking-[0.04em] px-2 py-0.5 rounded"
-      style={{ background: s.bg, color: s.color }}
-    >
-      {s.symbol} {status}
-    </span>
-  )
-}
-
 interface AlertModalProps {
   alert: AlertRecord
   onClose: () => void
 }
 
 function AlertModal({ alert, onClose }: AlertModalProps) {
-  const sev = levelToSeverity(alert.rule_level)
-
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', onKey)
@@ -83,23 +51,14 @@ function AlertModal({ alert, onClose }: AlertModalProps) {
           style={{ borderBottom: '1px solid var(--border)' }}
         >
           <div className="flex items-center gap-3">
-            <span
-              className="font-mono text-[10px] font-medium tracking-[0.04em] px-2 py-0.5 rounded border"
-              style={{
-                color: sev.color,
-                borderColor: `${sev.color}40`,
-                background: `${sev.color}18`,
-              }}
-            >
-              {sev.label}
-            </span>
+            <SeverityChip level={alert.rule_level} />
             <span className="text-[13px] font-semibold truncate" style={{ color: 'var(--text)' }}>
               {alert.rule_desc ?? alert.rule_id ?? `alert #${alert.id}`}
             </span>
           </div>
           <button
             onClick={onClose}
-            className="text-lg leading-none ml-4 transition-colors duration-150 hover:text-[#e6edf3]"
+            className="text-lg leading-none ml-4 transition-colors duration-150 hover:text-trion-text"
             style={{ color: 'var(--muted)' }}
             aria-label="Close"
           >
@@ -135,19 +94,7 @@ function AlertModal({ alert, onClose }: AlertModalProps) {
             </div>
             <div className="flex flex-wrap gap-2">
               {alert.iocs.map((ioc, i) => (
-                <span
-                  key={i}
-                  className="font-mono text-[11px] px-2 py-0.5 rounded border"
-                  style={
-                    ioc.verdict === 'MALICIOUS'
-                      ? { color: 'var(--red)',    borderColor: 'rgba(248,81,73,0.30)',  background: 'var(--red-dim)' }
-                      : ioc.verdict === 'SUSPICIOUS'
-                      ? { color: 'var(--orange)', borderColor: 'rgba(240,136,62,0.30)', background: 'rgba(240,136,62,0.10)' }
-                      : { color: 'var(--muted)',  borderColor: 'var(--border)' }
-                  }
-                >
-                  {ioc.type}: {ioc.value}
-                </span>
+                <IocPill key={i} type={ioc.type} value={ioc.value} verdict={ioc.verdict} dense />
               ))}
             </div>
           </div>
@@ -224,14 +171,14 @@ export function AlertsTable({ alerts }: AlertsTableProps) {
                     return (
                       <tr
                         key={alert.id}
-                        className="transition-colors duration-100 cursor-pointer hover:bg-[#1c2330]"
+                        className="transition-colors duration-100 cursor-pointer hover:bg-trion-surface2"
                         style={{ borderBottom: '1px solid var(--border)' }}
                         onClick={() => setSelected(alert)}
                       >
                         <td className="px-5 py-3 align-middle">
                           <div className="flex items-center" style={{ color: 'var(--text)' }}>
                             <span
-                              className={`inline-block w-[7px] h-[7px] rounded-full mr-2 shrink-0 ${sev.dotClass}`}
+                              className={`inline-block w-[7px] h-[7px] rounded-full mr-2 shrink-0 ${sev.glow ? 'severity-critical-glow' : ''}`}
                               style={{ background: sev.color }}
                             />
                             <span className="text-[13px] font-semibold truncate max-w-[260px]">
@@ -268,7 +215,7 @@ export function AlertsTable({ alerts }: AlertsTableProps) {
                 <button
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
                   disabled={page === 0}
-                  className="font-mono text-[11px] px-3 py-1 rounded border transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed hover:border-[rgba(255,255,255,0.20)] hover:text-[#e6edf3]"
+                  className="font-mono text-[11px] px-3 py-1 rounded border transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed hover:border-[rgba(255,255,255,0.20)] hover:text-trion-text"
                   style={{ color: 'var(--muted)', borderColor: 'var(--border)' }}
                 >
                   ← prev
@@ -279,7 +226,7 @@ export function AlertsTable({ alerts }: AlertsTableProps) {
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                   disabled={page === totalPages - 1}
-                  className="font-mono text-[11px] px-3 py-1 rounded border transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed hover:border-[rgba(255,255,255,0.20)] hover:text-[#e6edf3]"
+                  className="font-mono text-[11px] px-3 py-1 rounded border transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed hover:border-[rgba(255,255,255,0.20)] hover:text-trion-text"
                   style={{ color: 'var(--muted)', borderColor: 'var(--border)' }}
                 >
                   next →

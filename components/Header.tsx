@@ -37,7 +37,7 @@ export function Header({ lastUpdate, onLogout }: HeaderProps) {
         className="flex items-center gap-1.5 font-mono text-[11px] px-2.5 py-1 rounded-full border"
         style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--muted)' }}
       >
-        <span className="animate-trion-pulse w-1.5 h-1.5 rounded-full bg-[#3fb950] shrink-0" />
+        <span className="animate-trion-pulse w-1.5 h-1.5 rounded-full bg-trion-green shrink-0" />
         n8n · live
       </div>
 
@@ -46,7 +46,7 @@ export function Header({ lastUpdate, onLogout }: HeaderProps) {
         className="flex items-center gap-1.5 font-mono text-[11px] px-2.5 py-1 rounded-full border"
         style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--muted)' }}
       >
-        <span className="text-[#58a6ff] text-[10px]">■</span>
+        <span className="text-trion-accent text-[10px]">■</span>
         Wazuh 4.9
       </div>
 
@@ -58,7 +58,7 @@ export function Header({ lastUpdate, onLogout }: HeaderProps) {
       {/* Logout as avatar button */}
       <button
         onClick={onLogout}
-        className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold border transition-all duration-150 hover:border-[rgba(255,255,255,0.20)] hover:text-[#e6edf3]"
+        className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold border transition-all duration-150 hover:border-[rgba(255,255,255,0.20)] hover:text-trion-text"
         style={{
           background: 'var(--surface-2)',
           borderColor: 'var(--border-2)',

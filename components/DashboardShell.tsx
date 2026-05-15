@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import type { StatsResponse } from '@/lib/types'
 import { Header } from './Header'
 import { StatCounters } from './StatCounters'
@@ -76,7 +77,7 @@ export function DashboardShell({ initialData }: DashboardShellProps) {
       >
         <NavSection label="Monitor" />
 
-        <NavItem active icon={
+        <NavItem href="/" active icon={
           <svg className="w-4 h-4 opacity-70 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
             <rect x="1" y="1" width="6" height="6" rx="1.5"/>
             <rect x="9" y="1" width="6" height="6" rx="1.5"/>
@@ -87,7 +88,7 @@ export function DashboardShell({ initialData }: DashboardShellProps) {
           Overview
         </NavItem>
 
-        <NavItem badge={pending > 0 ? pending : undefined} icon={
+        <NavItem href="/alerts" badge={pending > 0 ? pending : undefined} icon={
           <svg className="w-4 h-4 opacity-70 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M2 4h12M2 8h8M2 12h10"/>
           </svg>
@@ -95,7 +96,7 @@ export function DashboardShell({ initialData }: DashboardShellProps) {
           Alert Queue
         </NavItem>
 
-        <NavItem icon={
+        <NavItem href="/timeline" icon={
           <svg className="w-4 h-4 opacity-70 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
             <circle cx="8" cy="8" r="6"/><path d="M8 5v3.5l2 2"/>
           </svg>
@@ -105,7 +106,7 @@ export function DashboardShell({ initialData }: DashboardShellProps) {
 
         <NavSection label="Threat Intel" />
 
-        <NavItem icon={
+        <NavItem href="/iocs" icon={
           <svg className="w-4 h-4 opacity-70 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M8 1L2 4v4c0 3.5 2.5 6 6 7 3.5-1 6-3.5 6-7V4L8 1z"/>
           </svg>
@@ -113,7 +114,7 @@ export function DashboardShell({ initialData }: DashboardShellProps) {
           IOCs
         </NavItem>
 
-        <NavItem icon={
+        <NavItem href="/reputation" icon={
           <svg className="w-4 h-4 opacity-70 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
             <circle cx="6" cy="6" r="4"/><path d="M10 10l4 4"/>
           </svg>
@@ -123,7 +124,7 @@ export function DashboardShell({ initialData }: DashboardShellProps) {
 
         <NavSection label="System" />
 
-        <NavItem icon={
+        <NavItem href="/workflows" icon={
           <svg className="w-4 h-4 opacity-70 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M8 1v2M8 13v2M1 8h2M13 8h2"/><circle cx="8" cy="8" r="3"/>
           </svg>
@@ -132,7 +133,7 @@ export function DashboardShell({ initialData }: DashboardShellProps) {
         </NavItem>
 
         <div className="mt-auto pt-4" style={{ borderTop: '1px solid var(--border)' }}>
-          <NavItem icon={
+          <NavItem href="/" icon={
             <svg className="w-4 h-4 opacity-70 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
               <circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/>
             </svg>
@@ -205,19 +206,22 @@ function NavSection({ label }: { label: string }) {
 
 function NavItem({
   children,
+  href,
   active,
   badge,
   icon,
 }: {
   children: React.ReactNode
+  href: string
   active?: boolean
   badge?: number
   icon: React.ReactNode
 }) {
   return (
-    <div
-      className={`relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-[8px] text-[13px] font-semibold transition-all duration-150 cursor-pointer ${
-        active ? '' : 'hover:bg-[#161b22] hover:text-[#e6edf3]'
+    <Link
+      href={href}
+      className={`relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-[8px] text-[13px] font-semibold transition-all duration-150 no-underline ${
+        active ? '' : 'hover:bg-trion-surface hover:text-trion-text'
       }`}
       style={
         active
@@ -236,6 +240,6 @@ function NavItem({
           {badge}
         </span>
       )}
-    </div>
+    </Link>
   )
 }
