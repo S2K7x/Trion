@@ -11,13 +11,13 @@
           ]
         }
       },
-      "id": "t-1",
-      "name": "Schedule — Every 30s",
+      "id": "1e486e38-6176-4b3a-9ba1-6dbfa6cbfa7e",
+      "name": "Schedule \u2014 Every 30s",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
       "position": [
-        0,
-        400
+        -1104,
+        192
       ]
     },
     {
@@ -57,13 +57,13 @@
           }
         }
       },
-      "id": "t-2",
-      "name": "Supabase — Stuck Job Cleanup",
+      "id": "0f3d5833-e3e2-4772-8720-bd7a8181570c",
+      "name": "Supabase \u2014 Stuck Job Cleanup",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        224,
-        400
+        -880,
+        192
       ],
       "continueOnFail": true
     },
@@ -91,27 +91,27 @@
           }
         }
       },
-      "id": "t-3",
-      "name": "Supabase — Fetch Pending Alerts",
+      "id": "47f74ddd-dc31-4558-8ba7-fa0a3e4781b6",
+      "name": "Supabase \u2014 Fetch Pending Alerts",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        448,
-        400
+        -656,
+        192
       ],
       "alwaysOutputData": true
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\nconst alerts = items.filter(i => i.json && i.json.id);\nif (alerts.length === 0) return [];\nif (alerts.length > 50) {\n  return [{ json: { queue_saturated: true, count: alerts.length } }];\n}\nreturn alerts.slice(0, 5).map(i => ({ json: i.json }));\n"
+        "jsCode": "const items = $input.all();\nconst alerts = items.filter(i => i.json && i.json.id);\nif (alerts.length === 0) return [];\nif (alerts.length > 50) {\n  return [{ json: { _queue_saturated: true, count: alerts.length } }];\n}\nreturn alerts.slice(0, 5).map(i => ({ json: i.json }));\n"
       },
-      "id": "t-4",
-      "name": "Code — Check Queue",
+      "id": "7871ac3e-4f8f-45e4-89ac-07c6b0389bc1",
+      "name": "Code \u2014 Check Queue",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        672,
-        400
+        -432,
+        192
       ]
     },
     {
@@ -120,7 +120,7 @@
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "loose",
+            "typeValidation": "strict",
             "version": 1
           },
           "conditions": [
@@ -138,13 +138,13 @@
         },
         "options": {}
       },
-      "id": "t-5",
-      "name": "IF — Queue Saturated?",
+      "id": "bdeb2ebd-cec6-461a-8e86-9a8ef5cd534b",
+      "name": "IF \u2014 Queue Saturated?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        880,
-        400
+        -224,
+        192
       ]
     },
     {
@@ -156,46 +156,54 @@
           "mode": "name",
           "value": "soc-alerts"
         },
-        "text": "=[SOC-QUEUE-WARNING] Queue saturée: {{ $json.count }} alertes en attente",
+        "text": "=[SOC-QUEUE-WARNING] Queue satur\u00e9e: {{ $json.count }} alertes en attente",
         "otherOptions": {
           "includeLinkToWorkflow": false,
           "mrkdwn": true
         }
       },
-      "id": "t-6",
-      "name": "Slack — Queue Saturation Warning",
+      "id": "6424e19a-6537-4b57-a33e-0fecad7ae971",
+      "name": "Slack \u2014 Queue Saturation Warning",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        1104,
-        208
+        0,
+        0
       ],
-      "webhookId": "29945add-cc8c-4cae-b7b8-f4acfeceebff"
+      "webhookId": "29945add-cc8c-4cae-b7b8-f4acfeceebff",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "baiWomG60yq23dhM",
+          "name": "Slack account"
+        }
+      }
     },
     {
       "parameters": {
-        "options": {}
+        "options": {
+          "reset": true
+        }
       },
-      "id": "t-7",
-      "name": "SplitInBatches — Per Alert",
+      "id": "554a6fa8-c508-47cf-86d3-150063e3cc04",
+      "name": "SplitInBatches \u2014 Per Alert",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        1104,
-        608
+        -16,
+        416
       ]
     },
     {
       "parameters": {
-        "jsCode": "const sd = $workflow.staticData;\nsd.enrichedIocs = [];\nsd.currentAlert = $input.first().json;\nreturn [{ json: $input.first().json }];\n"
+        "jsCode": "const item = $input.first().json;\n// Reject error bubbles (Continue on Fail upstream)\nif (item.error) return [];\n// Reject queue-saturation sentinel\nif (item._queue_saturated) return [];\n// Reject anything that is not a real pending alert\n// (e.g. Supabase Mark Done response loops back with status='done')\nconst alertId = Number(item.id);\nif (!alertId || !item.rule_id || item.status !== 'pending') return [];\nconst sd = $getWorkflowStaticData('global');\nsd.enrichedIocs = [];\nsd.currentAlert = item;\nreturn [{ json: item }];\n"
       },
-      "id": "t-8",
-      "name": "Code — Init Alert Context",
+      "id": "0e1f6007-f800-4fb1-bbb3-92943eef4353",
+      "name": "Code \u2014 Init Alert Context",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1328,
-        608
+        224,
+        400
       ]
     },
     {
@@ -235,13 +243,13 @@
           }
         }
       },
-      "id": "t-9",
-      "name": "Supabase — Mark Processing",
+      "id": "a2f7b2e7-ec25-4ae0-ae2f-029c9721c051",
+      "name": "Supabase \u2014 Mark Processing",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1552,
-        608
+        448,
+        400
       ],
       "continueOnFail": true
     },
@@ -251,7 +259,7 @@
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "loose",
+            "typeValidation": "strict",
             "version": 1
           },
           "conditions": [
@@ -263,32 +271,42 @@
                 "type": "number",
                 "operation": "largerEqual"
               }
+            },
+            {
+              "id": "0ab03a0c-e67b-4e54-82d5-682184ade1d3",
+              "leftValue": "",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
             }
           ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "t-10",
-      "name": "IF — Has IOCs?",
+      "id": "12d8573d-5bcf-4ca8-98f3-0902afa16db5",
+      "name": "IF \u2014 Has IOCs?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1760,
-        608
+        656,
+        400
       ]
     },
     {
       "parameters": {
-        "jsCode": "const alert = $input.first().json;\nconst level  = parseInt(alert.rule_level || 0);\nconst prefix = level >= 12 ? '[CRITICAL]' : level >= 8 ? '[HIGH]' : level >= 5 ? '[MEDIUM]' : '[LOW]';\nconst title  = alert.rule_desc || `Rule ${alert.rule_id}`;\nconst sep    = '───────────────────────────';\nconst ts     = new Date().toISOString().replace('T',' ').slice(0,19) + ' UTC';\nconst lines  = [\n  `${prefix} ${title}`, sep,\n  `rule_id   : ${alert.rule_id}`,\n  `agent     : ${alert.agent_name} (${alert.agent_ip})`,\n  alert.username ? `user      : ${alert.username}` : null,\n  alert.command  ? `command   : ${alert.command}`  : null,\n  '', 'no external ioc detected', '',\n  `${ts} · mini-soc/wazuh`,\n].filter(l => l !== null);\nreturn [{ json: { text: '```\\n' + lines.join('\\n') + '\\n```', alert_id: alert.id } }];\n"
+        "jsCode": "const sd    = $getWorkflowStaticData('global');\nconst alert = sd.currentAlert || {};\nif (!alert.id) return [];\nconst level  = parseInt(alert.rule_level ?? 0, 10);\nconst prefix = level >= 12 ? '[CRITICAL]' : level >= 8 ? '[HIGH]' : level >= 5 ? '[MEDIUM]' : '[LOW]';\nconst title  = alert.rule_desc || `Rule ${alert.rule_id || 'unknown'}`;\nconst sep    = '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500';\nconst ts     = new Date().toISOString().replace('T',' ').slice(0,19) + ' UTC';\nconst lines  = [\n  `${prefix} ${title}`, sep,\n  `rule_id   : ${alert.rule_id   || 'n/a'}`,\n  `agent     : ${alert.agent_name || 'n/a'} (${alert.agent_ip || 'n/a'})`,\n  alert.username ? `user      : ${alert.username}` : null,\n  alert.command  ? `command   : ${alert.command}`  : null,\n  '', 'no external ioc detected', '',\n  `${ts} \u00b7 mini-soc/wazuh`,\n].filter(l => l !== null);\nreturn [{ json: { text: '```\\n' + lines.join('\\n') + '\\n```', alert_id: alert.id } }];\n"
       },
-      "id": "t-11",
-      "name": "Code — Build No-IOC Message",
+      "id": "a481d305-d6e0-4593-8188-9e617a6c8a2c",
+      "name": "Code \u2014 Build No-IOC Message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1984,
-        400
+        880,
+        192
       ]
     },
     {
@@ -306,15 +324,21 @@
           "mrkdwn": true
         }
       },
-      "id": "t-12",
-      "name": "Slack — Post No-IOC Alert",
+      "id": "417ddc52-d244-4de8-a6e5-42a03fab742f",
+      "name": "Slack \u2014 Post No-IOC Alert",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        2208,
-        400
+        1104,
+        192
       ],
-      "webhookId": "e9be37bb-8178-49c7-99fb-0b9dec6852e5"
+      "webhookId": "e9be37bb-8178-49c7-99fb-0b9dec6852e5",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "baiWomG60yq23dhM",
+          "name": "Slack account"
+        }
+      }
     },
     {
       "parameters": {
@@ -353,53 +377,53 @@
           }
         }
       },
-      "id": "t-13",
-      "name": "Supabase — Mark Done (no-IOC)",
+      "id": "bf6113e8-a08a-4c31-8e50-18fa9e809ce9",
+      "name": "Supabase \u2014 Mark Done (no-IOC)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        2432,
-        400
+        1328,
+        192
       ],
       "continueOnFail": true
     },
     {
       "parameters": {
-        "jsCode": "const alert = $input.first().json;\nconst iocs = Array.isArray(alert.iocs) ? alert.iocs : (JSON.parse(alert.iocs || '[]'));\nif (iocs.length === 0) return [];\nreturn iocs.map(ioc => ({ json: { ...alert, ioc_value: ioc.value, ioc_type: ioc.type } }));\n"
+        "jsCode": "const sd    = $getWorkflowStaticData('global');\nconst alert = sd.currentAlert || {};\nif (!alert.id) return [];\nlet iocs = [];\nif (Array.isArray(alert.iocs)) {\n  iocs = alert.iocs;\n} else if (typeof alert.iocs === 'string' && alert.iocs.trim()) {\n  try { iocs = JSON.parse(alert.iocs); } catch { iocs = []; }\n}\nconst valid = iocs.filter(ioc => ioc && ioc.value && ioc.type);\nif (valid.length === 0) return [];\nreturn valid.map(ioc => ({\n  json: { ...alert, ioc_value: String(ioc.value), ioc_type: String(ioc.type).toLowerCase() }\n}));\n"
       },
-      "id": "t-14",
-      "name": "Code — Expand IOCs to Items",
+      "id": "e6d82b4b-4f62-443f-a3ba-f778fb7d133e",
+      "name": "Code \u2014 Expand IOCs to Items",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1984,
-        800
+        880,
+        592
       ]
     },
     {
       "parameters": {
         "options": {}
       },
-      "id": "t-15",
-      "name": "SplitInBatches — Per IOC",
+      "id": "157497a1-ec91-416b-af3f-798c5319c2f6",
+      "name": "SplitInBatches \u2014 Per IOC",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        2208,
-        800
+        1104,
+        592
       ]
     },
     {
       "parameters": {
-        "jsCode": "const sd = $workflow.staticData;\nconst now  = Date.now();\nconst last = sd.lastVTCallMs || 0;\nconst wait = 15000 - (now - last);\nif (wait > 0) await new Promise(r => setTimeout(r, wait));\nsd.lastVTCallMs = Date.now();\n// Save current IOC identity for later aggregation\nsd.currentIoc = { value: $json.ioc_value, type: $json.ioc_type };\nreturn [{ json: $input.first().json }];\n"
+        "jsCode": "const sd  = $getWorkflowStaticData('global');\nconst now  = Date.now();\nconst last = sd.lastVTCallMs || 0;\nconst wait = 15000 - (now - last);\nif (wait > 0) await new Promise(r => setTimeout(r, wait));\nsd.lastVTCallMs = Date.now();\nconst iocValue = $json.ioc_value || '';\nconst iocType  = $json.ioc_type  || 'unknown';\nsd.currentIoc  = { value: iocValue, type: iocType };\nreturn [{ json: $input.first().json }];\n"
       },
-      "id": "t-16",
-      "name": "Code — VT Rate Limit Guard",
+      "id": "0a0fbdb3-e0ac-4a63-837c-fdf7cf96a340",
+      "name": "Code \u2014 VT Rate Limit Guard",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2432,
-        800
+        1328,
+        592
       ]
     },
     {
@@ -426,13 +450,13 @@
         },
         "options": {}
       },
-      "id": "t-17",
-      "name": "IF — Is IP?",
+      "id": "007e527b-3fca-4451-b436-a28d87735ea9",
+      "name": "IF \u2014 Is IP?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        2640,
-        800
+        1536,
+        592
       ]
     },
     {
@@ -455,13 +479,13 @@
           }
         }
       },
-      "id": "t-18",
-      "name": "HTTP — VT IP",
+      "id": "8c734e74-3657-4a19-a5d0-adea31d4e73b",
+      "name": "HTTP \u2014 VT IP",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        2864,
-        608
+        1760,
+        400
       ]
     },
     {
@@ -484,26 +508,26 @@
           }
         }
       },
-      "id": "t-19",
-      "name": "HTTP — AbuseIPDB",
+      "id": "22ae647c-d70d-43c5-8088-16151a99f1ce",
+      "name": "HTTP \u2014 AbuseIPDB",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        3088,
-        608
+        1984,
+        400
       ]
     },
     {
       "parameters": {
-        "jsCode": "const sd = $workflow.staticData;\nconst vtItems    = $items('HTTP — VT IP');\nconst abuseItems = $items('HTTP — AbuseIPDB');\nconst vt    = vtItems[0]?.json    || {};\nconst abuse = abuseItems[0]?.json || {};\nconst stats     = vt.data?.attributes?.last_analysis_stats || {};\nconst malicious = stats.malicious || 0;\nconst total     = Object.values(stats).reduce((a,b)=>a+b, 0);\nconst abusePct  = abuse.data?.abuseConfidenceScore || 0;\nlet verdict = 'CLEAN';\nif (malicious > 5 || abusePct > 50) verdict = 'MALICIOUS';\nelse if (malicious > 0 || abusePct > 10) verdict = 'SUSPICIOUS';\nif (!sd.enrichedIocs) sd.enrichedIocs = [];\nsd.enrichedIocs.push({\n  value: sd.currentIoc?.value || '?', type: 'ip',\n  vt_malicious: malicious, vt_total: total,\n  abuse_confidence: abusePct, verdict,\n});\nreturn [{ json: { loop_continue: true } }];\n"
+        "jsCode": "const sd = $getWorkflowStaticData('global');\nconst vtItems    = $items('HTTP \u2014 VT IP');\nconst abuseItems = $items('HTTP \u2014 AbuseIPDB');\nconst vt    = vtItems[0]?.json    || {};\nconst abuse = abuseItems[0]?.json || {};\nconst vtError = !!vt.error;\nconst stats     = vt.data?.attributes?.last_analysis_stats || {};\nconst malicious = Number(stats.malicious) || 0;\nconst total     = Object.values(stats).reduce((a, b) => a + (Number(b) || 0), 0);\nconst abusePct  = Number(abuse.data?.abuseConfidenceScore) || 0;\nlet verdict = vtError ? 'UNKNOWN' : 'CLEAN';\nif (!vtError) {\n  if (malicious > 5 || abusePct > 50) verdict = 'MALICIOUS';\n  else if (malicious > 0 || abusePct > 10) verdict = 'SUSPICIOUS';\n}\nif (!sd.enrichedIocs) sd.enrichedIocs = [];\nsd.enrichedIocs.push({\n  value: sd.currentIoc?.value || '?', type: 'ip',\n  vt_malicious: malicious, vt_total: total,\n  abuse_confidence: abusePct, verdict,\n  vt_error: vtError || undefined,\n});\nreturn [{ json: { loop_continue: true } }];\n"
       },
-      "id": "t-20",
-      "name": "Code — Format IP Result",
+      "id": "347c3574-79dd-40fe-a29c-709028729941",
+      "name": "Code \u2014 Format IP Result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3312,
-        608
+        2208,
+        400
       ]
     },
     {
@@ -530,13 +554,13 @@
         },
         "options": {}
       },
-      "id": "t-21",
-      "name": "IF — Is Hash?",
+      "id": "d75f7a70-430d-4de6-b8fc-fbf5dece84ed",
+      "name": "IF \u2014 Is Hash?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        2640,
-        1008
+        1536,
+        800
       ]
     },
     {
@@ -559,13 +583,13 @@
           }
         }
       },
-      "id": "t-22",
-      "name": "HTTP — VT Hash",
+      "id": "e64825e5-9cd3-4b30-94aa-05cd12cf2aa6",
+      "name": "HTTP \u2014 VT Hash",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        2864,
-        1008
+        1760,
+        800
       ]
     },
     {
@@ -594,27 +618,27 @@
           }
         }
       },
-      "id": "t-23",
-      "name": "HTTP — MalwareBazaar",
+      "id": "529e4666-8802-4c0a-abf6-a628090332d4",
+      "name": "HTTP \u2014 MalwareBazaar",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        3088,
-        1008
+        1984,
+        800
       ],
       "continueOnFail": true
     },
     {
       "parameters": {
-        "jsCode": "const sd = $workflow.staticData;\nconst vtItems = $items('HTTP — VT Hash');\nconst mwItems = $items('HTTP — MalwareBazaar');\nconst vt  = vtItems[0]?.json || {};\nconst mw  = mwItems[0]?.json || {};\nconst stats     = vt.data?.attributes?.last_analysis_stats || {};\nconst malicious = stats.malicious || 0;\nconst total     = Object.values(stats).reduce((a,b)=>a+b, 0);\nconst mwFound   = mw.query_status === 'ok' && Array.isArray(mw.data) && mw.data.length > 0;\nlet verdict = 'CLEAN';\nif (malicious > 5 || mwFound) verdict = 'MALICIOUS';\nelse if (malicious > 0) verdict = 'SUSPICIOUS';\nif (!sd.enrichedIocs) sd.enrichedIocs = [];\nsd.enrichedIocs.push({\n  value: sd.currentIoc?.value || '?', type: 'hash',\n  vt_malicious: malicious, vt_total: total,\n  mwbazaar_found: mwFound, verdict,\n});\nreturn [{ json: { loop_continue: true } }];\n"
+        "jsCode": "const sd = $getWorkflowStaticData('global');\nconst vtItems = $items('HTTP \u2014 VT Hash');\nconst mwItems = $items('HTTP \u2014 MalwareBazaar');\nconst vt  = vtItems[0]?.json || {};\nconst mw  = mwItems[0]?.json || {};\nconst vtError = !!vt.error;\nconst stats     = vt.data?.attributes?.last_analysis_stats || {};\nconst malicious = Number(stats.malicious) || 0;\nconst total     = Object.values(stats).reduce((a, b) => a + (Number(b) || 0), 0);\nconst mwFound   = mw.query_status === 'ok' && Array.isArray(mw.data) && mw.data.length > 0;\nlet verdict = vtError ? 'UNKNOWN' : 'CLEAN';\nif (!vtError) {\n  if (malicious > 5 || mwFound) verdict = 'MALICIOUS';\n  else if (malicious > 0) verdict = 'SUSPICIOUS';\n}\nif (!sd.enrichedIocs) sd.enrichedIocs = [];\nsd.enrichedIocs.push({\n  value: sd.currentIoc?.value || '?', type: 'hash',\n  vt_malicious: malicious, vt_total: total,\n  mwbazaar_found: mwFound, verdict,\n  vt_error: vtError || undefined,\n});\nreturn [{ json: { loop_continue: true } }];\n"
       },
-      "id": "t-24",
-      "name": "Code — Format Hash Result",
+      "id": "8a8915b8-217a-4c73-914e-2a4b3d509203",
+      "name": "Code \u2014 Format Hash Result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3312,
-        1008
+        2208,
+        800
       ]
     },
     {
@@ -637,39 +661,39 @@
           }
         }
       },
-      "id": "t-25",
-      "name": "HTTP — VT Domain",
+      "id": "31fb030f-16dd-40bb-8a3b-510080452134",
+      "name": "HTTP \u2014 VT Domain",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        2864,
-        1200
+        1760,
+        992
       ]
     },
     {
       "parameters": {
-        "jsCode": "const sd = $workflow.staticData;\nconst vtItems = $items('HTTP — VT Domain');\nconst vt = vtItems[0]?.json || {};\nconst stats     = vt.data?.attributes?.last_analysis_stats || {};\nconst malicious = stats.malicious || 0;\nconst total     = Object.values(stats).reduce((a,b)=>a+b, 0);\nlet verdict = 'CLEAN';\nif (malicious > 5) verdict = 'MALICIOUS';\nelse if (malicious > 0) verdict = 'SUSPICIOUS';\nif (!sd.enrichedIocs) sd.enrichedIocs = [];\nsd.enrichedIocs.push({\n  value: sd.currentIoc?.value || '?', type: 'domain',\n  vt_malicious: malicious, vt_total: total, verdict,\n});\nreturn [{ json: { loop_continue: true } }];\n"
+        "jsCode": "const sd = $getWorkflowStaticData('global');\nconst vtItems = $items('HTTP \u2014 VT Domain');\nconst vt = vtItems[0]?.json || {};\nconst vtError = !!vt.error;\nconst stats     = vt.data?.attributes?.last_analysis_stats || {};\nconst malicious = Number(stats.malicious) || 0;\nconst total     = Object.values(stats).reduce((a, b) => a + (Number(b) || 0), 0);\nlet verdict = vtError ? 'UNKNOWN' : 'CLEAN';\nif (!vtError) {\n  if (malicious > 5) verdict = 'MALICIOUS';\n  else if (malicious > 0) verdict = 'SUSPICIOUS';\n}\nif (!sd.enrichedIocs) sd.enrichedIocs = [];\nsd.enrichedIocs.push({\n  value: sd.currentIoc?.value || '?', type: 'domain',\n  vt_malicious: malicious, vt_total: total, verdict,\n  vt_error: vtError || undefined,\n});\nreturn [{ json: { loop_continue: true } }];\n"
       },
-      "id": "t-26",
-      "name": "Code — Format Domain Result",
+      "id": "1e806b12-c2f2-459e-bd3a-562d9dc90adf",
+      "name": "Code \u2014 Format Domain Result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3312,
-        1200
+        2208,
+        992
       ]
     },
     {
       "parameters": {
-        "jsCode": "const sd = $workflow.staticData;\nconst alert = sd.currentAlert || {};\nconst iocs  = sd.enrichedIocs || [];\nsd.enrichedIocs = [];\nconst level  = parseInt(alert.rule_level || 0);\nconst prefix = level >= 12 ? '[CRITICAL]' : level >= 8 ? '[HIGH]' : level >= 5 ? '[MEDIUM]' : '[LOW]';\nconst title  = alert.rule_desc || `Rule ${alert.rule_id}`;\nconst sep    = '───────────────────────────';\nconst ts     = new Date().toISOString().replace('T',' ').slice(0,19) + ' UTC';\nlet iocBlock = iocs.length === 0 ? '\\nno external ioc detected' : '\\nioc enrichment';\nfor (const ioc of iocs) {\n  iocBlock += `\\n  ${ioc.value}`;\n  if (ioc.type === 'ip') {\n    iocBlock += `\\n    vt       : ${ioc.vt_malicious}/${ioc.vt_total}  ← ${ioc.verdict}`;\n    if (ioc.abuse_confidence !== undefined) iocBlock += `\\n    abuse    : ${ioc.abuse_confidence}%`;\n  } else if (ioc.type === 'hash') {\n    iocBlock += `\\n    vt       : ${ioc.vt_malicious}/${ioc.vt_total}  ← ${ioc.verdict}`;\n    if (ioc.mwbazaar_found) iocBlock += `\\n    mwbazaar : known malware`;\n  } else if (ioc.type === 'domain') {\n    iocBlock += `\\n    vt       : ${ioc.vt_malicious}/${ioc.vt_total}  ← ${ioc.verdict}`;\n  }\n}\nconst lines = [\n  `${prefix} ${title}`, sep,\n  `rule_id   : ${alert.rule_id}`,\n  `agent     : ${alert.agent_name} (${alert.agent_ip})`,\n  alert.username ? `user      : ${alert.username}` : null,\n  alert.command  ? `command   : ${alert.command}`  : null,\n  iocBlock, '',\n  `${ts} · mini-soc/wazuh`,\n].filter(l => l !== null);\nreturn [{ json: { text: '```\\n' + lines.join('\\n') + '\\n```', alert_id: alert.id } }];\n"
+        "jsCode": "const sd = $getWorkflowStaticData('global');\nconst alert = sd.currentAlert || {};\nconst iocs  = sd.enrichedIocs || [];\nsd.enrichedIocs  = [];\nsd.currentAlert  = null;\n// Safety: if alert has no id, bail \u2014 don't send garbled Slack message\nif (!alert.id) return [{ json: { _skipped: true } }];\nconst level  = parseInt(alert.rule_level ?? 0, 10);\nconst prefix = level >= 12 ? '[CRITICAL]' : level >= 8 ? '[HIGH]' : level >= 5 ? '[MEDIUM]' : '[LOW]';\nconst title  = alert.rule_desc || `Rule ${alert.rule_id || 'unknown'}`;\nconst sep    = '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500';\nconst ts     = new Date().toISOString().replace('T',' ').slice(0,19) + ' UTC';\nlet iocBlock = iocs.length === 0 ? '\\nno external ioc detected' : '\\nioc enrichment';\nfor (const ioc of iocs) {\n  iocBlock += `\\n  ${ioc.value}`;\n  const errNote = ioc.vt_error ? ' (vt unavailable)' : '';\n  if (ioc.type === 'ip') {\n    iocBlock += `\\n    vt       : ${ioc.vt_malicious}/${ioc.vt_total}  \u2190 ${ioc.verdict}${errNote}`;\n    if (ioc.abuse_confidence !== undefined) iocBlock += `\\n    abuse    : ${ioc.abuse_confidence}%`;\n  } else if (ioc.type === 'hash') {\n    iocBlock += `\\n    vt       : ${ioc.vt_malicious}/${ioc.vt_total}  \u2190 ${ioc.verdict}${errNote}`;\n    if (ioc.mwbazaar_found) iocBlock += `\\n    mwbazaar : known malware`;\n  } else if (ioc.type === 'domain') {\n    iocBlock += `\\n    vt       : ${ioc.vt_malicious}/${ioc.vt_total}  \u2190 ${ioc.verdict}${errNote}`;\n  }\n}\nconst lines = [\n  `${prefix} ${title}`, sep,\n  `rule_id   : ${alert.rule_id   || 'n/a'}`,\n  `agent     : ${alert.agent_name || 'n/a'} (${alert.agent_ip || 'n/a'})`,\n  alert.username ? `user      : ${alert.username}` : null,\n  alert.command  ? `command   : ${alert.command}`  : null,\n  iocBlock, '',\n  `${ts} \u00b7 mini-soc/wazuh`,\n].filter(l => l !== null);\nreturn [{ json: { text: '```\\n' + lines.join('\\n') + '\\n```', alert_id: alert.id } }];\n"
       },
-      "id": "t-27",
-      "name": "Code — Build Slack Message",
+      "id": "3f79bc70-d3fa-4c6d-9aa8-30f264e34114",
+      "name": "Code \u2014 Build Slack Message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3520,
-        800
+        2416,
+        592
       ]
     },
     {
@@ -687,15 +711,21 @@
           "mrkdwn": true
         }
       },
-      "id": "t-28",
-      "name": "Slack — Post Alert",
+      "id": "41d48439-f1bc-438d-ac27-146bf10a9c43",
+      "name": "Slack \u2014 Post Alert",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        3744,
-        800
+        2640,
+        592
       ],
-      "webhookId": "db8d70f8-cd24-4ccb-84e5-b4e1ef69f2ad"
+      "webhookId": "db8d70f8-cd24-4ccb-84e5-b4e1ef69f2ad",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "baiWomG60yq23dhM",
+          "name": "Slack account"
+        }
+      }
     },
     {
       "parameters": {
@@ -734,356 +764,483 @@
           }
         }
       },
-      "id": "t-29",
-      "name": "Supabase — Mark Done (IOC)",
+      "id": "40727d58-0fce-4531-b5ef-72d77263dbd3",
+      "name": "Supabase \u2014 Mark Done (IOC)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        3968,
-        800
+        2864,
+        592
       ],
       "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "content": "## 2 \u2014 ROUTAGE QUEUE\n**IF Queue Saturated?** \u2192 si flag `_queue_saturated`\n  \u2192 `true` : alerte Slack \u00e9quipe\n\n**SplitInBatches \u2014 Per Alert**\nTraite **1 alerte \u00e0 la fois** via loop-back.\n\u26a0\ufe0f Le loop-back peut ramener des r\u00e9ponses Supabase\n   ou des error-bubbles \u2192 filtr\u00e9s par la garde Section 3.\n",
+        "height": 170,
+        "width": 420,
+        "color": 4
+      },
+      "id": "363eb66e-c54c-47cc-86f5-2422ed9010d9",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -528,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3 \u2014 CONTEXTE ALERTE \u26a0\ufe0f (lecture obligatoire)\n\n**Code \u2014 Init Alert Context** est la garde centrale du workflow.\n\n### Garde anti-boucle infinie\n```\nif (item.error)               return [];  // error-bubble Continue on Fail\nif (item._queue_saturated)    return [];  // sentinel Check Queue\nif (!alertId || !item.rule_id\n    || item.status !== 'pending') return [];  // r\u00e9ponse Supabase loop-back\n```\nSans cette garde \u2192 `Supabase Mark Done` retourne la ligne mise \u00e0 jour\n(status='done') dans SplitInBatches \u2192 trait\u00e9e comme nouvelle alerte \u2192 **boucle infinie de 60+ it\u00e9rations**.\n\n### Pattern sd.currentAlert\nL'alerte est stock\u00e9e dans `$getWorkflowStaticData('global').currentAlert`.\nTous les Code nodes en aval lisent depuis `sd.currentAlert`, **pas** depuis\n`$input.first().json` (Supabase Mark Processing retourne un stream HTTP brut,\npas les donn\u00e9es de l'alerte).\n",
+        "height": 360,
+        "width": 660,
+        "color": 5
+      },
+      "id": "1253d05d-908d-4d14-9cb0-7435404d813c",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4 \u2014 CHEMIN SANS IOC\nL'alerte n'a pas d'IOCs \u00e0 enrichir.\n\u2192 **Code \u2014 Build No-IOC Message** lit l'alerte via `sd.currentAlert`\n\u2192 Formate avec pr\u00e9fixe `[LOW/MEDIUM/HIGH/CRITICAL]` selon `rule_level`\n\u2192 **Discord** : envoi du message format\u00e9\n\u2192 **Supabase** : `status = 'done'`\n",
+        "height": 170,
+        "width": 620,
+        "color": 2
+      },
+      "id": "dd97ebed-6476-49f5-b0dc-53e21d09eeaf",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        848,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 5 \u2014 BOUCLE D'ENRICHISSEMENT IOC\n**SplitInBatches \u2014 Per IOC** traite chaque IOC un par un (IP / hash / domaine).\n",
+        "height": 640,
+        "width": 1560,
+        "color": 4
+      },
+      "id": "b4211d92-c4a7-4a7c-acb3-7346e07f6b1f",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        848,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "content": "**VT Rate Limit Guard** \u2192 pause de 15s entre chaque appel VirusTotal (quota gratuit : 4 req/min).\nL'IOC courant est sauvegard\u00e9 dans `sd.currentIoc` pour les Format nodes.\n\n**Routage par type :**\n`ip`     \u2192 VirusTotal IP + AbuseIPDB   \u2192 `Format IP Result`   (verdict si malicious > 5 OU abuse > 50%)\n`hash`   \u2192 VirusTotal Hash + MalwareBazaar \u2192 `Format Hash Result`  (verdict si malicious > 5 OU trouv\u00e9 MB)\n`domain` \u2192 VirusTotal Domain             \u2192 `Format Domain Result` (verdict si malicious > 5)\n\n**Verdicts possibles :** `CLEAN` \u00b7 `SUSPICIOUS` \u00b7 `MALICIOUS` \u00b7 `UNKNOWN` (si API en erreur)\nLes r\u00e9sultats s'accumulent dans `sd.enrichedIocs[]` via `$getWorkflowStaticData('global')`.\n\n\u26a0\ufe0f Les Format nodes lisent via `$items('HTTP \u2014 VT IP')` etc., **pas** via `$input`.\n   Ils g\u00e8rent `vt.error` \u2192 verdict `UNKNOWN` au lieu de faux `CLEAN`.\n",
+        "height": 550,
+        "width": 1550
+      },
+      "id": "9657ae8a-df94-4abf-bcb4-cb4b8c737ba9",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        848,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 6 \u2014 OUTPUT FINAL (avec IOC)\n**Code \u2014 Build Slack Message** :\n- Lit `sd.currentAlert` + `sd.enrichedIocs`\n- Vide `sd` apr\u00e8s usage (\u00e9vite donn\u00e9es p\u00e9rim\u00e9es au cycle suivant)\n- Bail-out si `alert.id` absent \u2192 `{ _skipped: true }`\n\n\u2192 **Slack** : message enrichi avec verdicts IOC\n\u2192 **Supabase** : `status = 'done'`\n",
+        "height": 230,
+        "width": 660,
+        "color": 2
+      },
+      "id": "312a61a1-5339-4dcf-b944-370a5719c9fa",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2368,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## soc-triage \u2014 Triage & Enrichissement des Alertes Wazuh\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n**TRIGGER**  Schedule toutes les 30s\n**OUTPUT**   Message Discord/Slack par alerte + mise \u00e0 jour statut Supabase\n**D\u00c9PEND**   soc-ingest (ins\u00e8re les alertes) \u00b7 Supabase alert_queue \u00b7 VirusTotal \u00b7 AbuseIPDB \u00b7 MalwareBazaar\n**AUTEUR**   S2K7x  \u00b7  **MAJ** 2026-05\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n**FLUX GLOBAL**\n`Supabase (pending)` \u2192 `Check Queue` \u2192 `SplitInBatches Per Alert` \u2192 `Init Context` \u2192 `IF IOCs?`\n  \u251c\u2500 Sans IOC \u2192 `Build No-IOC Message` \u2192 `Discord` \u2192 `Mark Done`\n  \u2514\u2500 Avec IOC \u2192 `SplitInBatches Per IOC` \u2192 `VT + AbuseIPDB/MalwareBazaar` \u2192 `Build Slack` \u2192 `Slack` \u2192 `Mark Done`\n",
+        "height": 340,
+        "width": 1068,
+        "color": 7
+      },
+      "id": "47a83e38-ac85-4f50-91bd-ed2369faf913",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        -704
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 1 \u2014 INTAKE & NETTOYAGE\nCycle toutes les 30s :\n1. **Stuck Job Cleanup** \u2192 reset les alertes bloqu\u00e9es en `status='processing'` depuis > 5 min\n2. **Fetch Pending Alerts** \u2192 SELECT * WHERE status = 'pending' ORDER BY created_at\n3. **Check Queue** \u2192 filtre les items sans `id`, limite \u00e0 **5 alertes/cycle**, flag `_queue_saturated` si > 50\n",
+        "height": 170,
+        "width": 714,
+        "color": 3
+      },
+      "id": "74ff8dc7-0bfd-495e-b828-fd2af6dcca83",
+      "name": "Sticky Note2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1136,
+        384
+      ]
     }
   ],
-  "pinData": {},
   "connections": {
-    "Schedule — Every 30s": {
+    "Schedule \u2014 Every 30s": {
       "main": [
         [
           {
-            "node": "Supabase — Stuck Job Cleanup",
+            "node": "Supabase \u2014 Stuck Job Cleanup",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Supabase — Stuck Job Cleanup": {
+    "Supabase \u2014 Stuck Job Cleanup": {
       "main": [
         [
           {
-            "node": "Supabase — Fetch Pending Alerts",
+            "node": "Supabase \u2014 Fetch Pending Alerts",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Supabase — Fetch Pending Alerts": {
+    "Supabase \u2014 Fetch Pending Alerts": {
       "main": [
         [
           {
-            "node": "Code — Check Queue",
+            "node": "Code \u2014 Check Queue",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Code — Check Queue": {
+    "Code \u2014 Check Queue": {
       "main": [
         [
           {
-            "node": "IF — Queue Saturated?",
+            "node": "IF \u2014 Queue Saturated?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "IF — Queue Saturated?": {
+    "IF \u2014 Queue Saturated?": {
       "main": [
         [
           {
-            "node": "Slack — Queue Saturation Warning",
+            "node": "Slack \u2014 Queue Saturation Warning",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "SplitInBatches — Per Alert",
+            "node": "SplitInBatches \u2014 Per Alert",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "SplitInBatches — Per Alert": {
+    "SplitInBatches \u2014 Per Alert": {
       "main": [
+        [],
         [
           {
-            "node": "Code — Init Alert Context",
+            "node": "Code \u2014 Init Alert Context",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Code — Init Alert Context": {
+    "Code \u2014 Init Alert Context": {
       "main": [
         [
           {
-            "node": "Supabase — Mark Processing",
+            "node": "Supabase \u2014 Mark Processing",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Supabase — Mark Processing": {
+    "Supabase \u2014 Mark Processing": {
       "main": [
         [
           {
-            "node": "IF — Has IOCs?",
+            "node": "IF \u2014 Has IOCs?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "IF — Has IOCs?": {
+    "IF \u2014 Has IOCs?": {
       "main": [
         [
           {
-            "node": "Code — Expand IOCs to Items",
+            "node": "Code \u2014 Expand IOCs to Items",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Code — Build No-IOC Message",
+            "node": "Code \u2014 Build No-IOC Message",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Code — Build No-IOC Message": {
+    "Code \u2014 Build No-IOC Message": {
       "main": [
         [
           {
-            "node": "Slack — Post No-IOC Alert",
+            "node": "Slack \u2014 Post No-IOC Alert",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Slack — Post No-IOC Alert": {
+    "Slack \u2014 Post No-IOC Alert": {
       "main": [
         [
           {
-            "node": "Supabase — Mark Done (no-IOC)",
+            "node": "Supabase \u2014 Mark Done (no-IOC)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Supabase — Mark Done (no-IOC)": {
+    "Supabase \u2014 Mark Done (no-IOC)": {
       "main": [
         [
           {
-            "node": "SplitInBatches — Per Alert",
+            "node": "SplitInBatches \u2014 Per Alert",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Code — Expand IOCs to Items": {
+    "Code \u2014 Expand IOCs to Items": {
       "main": [
         [
           {
-            "node": "SplitInBatches — Per IOC",
+            "node": "SplitInBatches \u2014 Per IOC",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "SplitInBatches — Per IOC": {
+    "SplitInBatches \u2014 Per IOC": {
       "main": [
         [
           {
-            "node": "Code — VT Rate Limit Guard",
+            "node": "Code \u2014 VT Rate Limit Guard",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Code — Build Slack Message",
+            "node": "Code \u2014 Build Slack Message",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Code — VT Rate Limit Guard": {
+    "Code \u2014 VT Rate Limit Guard": {
       "main": [
         [
           {
-            "node": "IF — Is IP?",
+            "node": "IF \u2014 Is IP?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "IF — Is IP?": {
+    "IF \u2014 Is IP?": {
       "main": [
         [
           {
-            "node": "HTTP — VT IP",
+            "node": "HTTP \u2014 VT IP",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "IF — Is Hash?",
+            "node": "IF \u2014 Is Hash?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "HTTP — VT IP": {
+    "HTTP \u2014 VT IP": {
       "main": [
         [
           {
-            "node": "HTTP — AbuseIPDB",
+            "node": "HTTP \u2014 AbuseIPDB",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "HTTP — AbuseIPDB": {
+    "HTTP \u2014 AbuseIPDB": {
       "main": [
         [
           {
-            "node": "Code — Format IP Result",
+            "node": "Code \u2014 Format IP Result",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Code — Format IP Result": {
+    "Code \u2014 Format IP Result": {
       "main": [
         [
           {
-            "node": "SplitInBatches — Per IOC",
+            "node": "SplitInBatches \u2014 Per IOC",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "IF — Is Hash?": {
+    "IF \u2014 Is Hash?": {
       "main": [
         [
           {
-            "node": "HTTP — VT Hash",
+            "node": "HTTP \u2014 VT Hash",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "HTTP — VT Domain",
+            "node": "HTTP \u2014 VT Domain",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "HTTP — VT Hash": {
+    "HTTP \u2014 VT Hash": {
       "main": [
         [
           {
-            "node": "HTTP — MalwareBazaar",
+            "node": "HTTP \u2014 MalwareBazaar",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "HTTP — MalwareBazaar": {
+    "HTTP \u2014 MalwareBazaar": {
       "main": [
         [
           {
-            "node": "Code — Format Hash Result",
+            "node": "Code \u2014 Format Hash Result",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Code — Format Hash Result": {
+    "Code \u2014 Format Hash Result": {
       "main": [
         [
           {
-            "node": "SplitInBatches — Per IOC",
+            "node": "SplitInBatches \u2014 Per IOC",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "HTTP — VT Domain": {
+    "HTTP \u2014 VT Domain": {
       "main": [
         [
           {
-            "node": "Code — Format Domain Result",
+            "node": "Code \u2014 Format Domain Result",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Code — Format Domain Result": {
+    "Code \u2014 Format Domain Result": {
       "main": [
         [
           {
-            "node": "SplitInBatches — Per IOC",
+            "node": "SplitInBatches \u2014 Per IOC",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Code — Build Slack Message": {
+    "Code \u2014 Build Slack Message": {
       "main": [
         [
           {
-            "node": "Slack — Post Alert",
+            "node": "Slack \u2014 Post Alert",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Slack — Post Alert": {
+    "Slack \u2014 Post Alert": {
       "main": [
         [
           {
-            "node": "Supabase — Mark Done (IOC)",
+            "node": "Supabase \u2014 Mark Done (IOC)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Supabase — Mark Done (IOC)": {
+    "Supabase \u2014 Mark Done (IOC)": {
       "main": [
         [
           {
-            "node": "SplitInBatches — Per Alert",
+            "node": "SplitInBatches \u2014 Per Alert",
             "type": "main",
             "index": 0
           }
@@ -1091,15 +1248,12 @@
       ]
     }
   },
-  "active": false,
   "settings": {
     "executionOrder": "v1",
-    "binaryMode": "separate"
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
   },
-  "versionId": "5657bd04-237a-4f23-a4e9-f8ffa8e1cca7",
-  "meta": {
-    "instanceId": "b75864d93eec333fe72e094db00f54c21404138eb5eda9580d5e9d267aac2852"
-  },
-  "id": "aqIzJ4lr2ZoKB9Tg",
   "tags": []
 }

@@ -1,12 +1,99 @@
 # mini-soc
 
-Dashboard SOC (Security Operations Center) en temps réel. Centralise les alertes de sécurité générées par **Wazuh**, visualise les tendances, identifie les IOCs malveillants et surveille les workflows d'automatisation n8n.
+**A self-hosted Security Operations Center dashboard** — real-time Wazuh alert triage, automated IOC enrichment via VirusTotal / AbuseIPDB / MalwareBazaar, and instant Discord/Slack notifications. Built as a full end-to-end security pipeline.
 
-![Stack](https://img.shields.io/badge/Next.js-14-black) ![Stack](https://img.shields.io/badge/Supabase-PostgreSQL-green) ![Stack](https://img.shields.io/badge/Wazuh-4.9-blue) ![Stack](https://img.shields.io/badge/Docker-ready-blue)
+<p align="left">
+  <img src="https://img.shields.io/badge/Next.js-14-black?logo=next.js" />
+  <img src="https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white" />
+  <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3ecf8e?logo=supabase&logoColor=white" />
+  <img src="https://img.shields.io/badge/Wazuh-4.9-005571" />
+  <img src="https://img.shields.io/badge/n8n-automation-ef6c00" />
+  <img src="https://img.shields.io/badge/Docker-ready-2496ed?logo=docker&logoColor=white" />
+  <img src="https://img.shields.io/badge/Vercel-deployable-black?logo=vercel" />
+</p>
 
 ---
 
-## ⚡ Fast Installation
+## What it does
+
+mini-soc connects Wazuh agents running on your endpoints to a live dashboard and an automated triage pipeline:
+
+1. **Wazuh agents** detect security events (brute-force, privilege escalation, file integrity changes, etc.) on any monitored machine
+2. **soc-ingest** (n8n) receives the webhook, validates and normalises the alert, then inserts it into Supabase with deduplication
+3. **soc-triage** (n8n) picks up pending alerts every 30 seconds, enriches IOCs (IPs, hashes, domains) against three threat intel APIs, and posts a formatted alert to Discord or Slack
+4. **The dashboard** polls `/api/stats` every 30 seconds and displays everything live
+
+---
+
+## Features
+
+- **Real-time KPIs** — alerts today, queue depth, critical count, 24h error rate
+- **24h trend chart** — hourly breakdown with critical alert overlay (Recharts area chart)
+- **Top Wazuh rules** — most-triggered rules over 7 days (bar chart)
+- **Malicious IOC leaderboard** — top IPs, hashes, and domains flagged MALICIOUS in the last 7 days
+- **Alert table** — paginated (10/page), click any row to inspect the raw Wazuh JSON in a modal
+- **n8n workflow health** — live status of `soc-ingest`, `soc-triage`, `soc-error-handler`
+- **JWT authentication** — single-password access, httpOnly cookie, middleware-protected routes
+- **Auto-refresh** — 30-second client-side polling, no WebSocket complexity
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Monitored Endpoints                          │
+│   Wazuh Agent (Linux / Windows / macOS)   ─── TCP/1514 ──►    │
+└──────────────────────────┬──────────────────────────────────────┘
+                           ▼
+              ┌────────────────────────┐
+              │      Wazuh Manager     │
+              │  custom-n8n            │
+              │  POST /webhook/wazuh   │
+              └────────────┬───────────┘
+                           ▼
+              ┌────────────────────────┐
+              │   n8n — soc-ingest     │  Validate · Deduplicate · Extract IOCs
+              │   Webhook → Transform  │  INSERT alert_queue (Supabase)
+              └────────────┬───────────┘
+                           ▼
+         ┌─────────────────────────────────────────────┐
+         │           Supabase — alert_queue             │
+         │  id · rule_id · rule_level · iocs (jsonb)   │
+         │  status: pending → processing → done/error  │
+         └──────────────┬────────────────┬─────────────┘
+                        │                │
+                        ▼                ▼
+        ┌───────────────────┐   ┌────────────────────────┐
+        │ n8n — soc-triage  │   │   mini-soc Dashboard   │
+        │   (every 30s)     │   │   Next.js 14 · SSR     │
+        │                   │   │                        │
+        │ VirusTotal        │   │  KPIs · Trend Chart    │
+        │ AbuseIPDB         │   │  Top Rules · IOC List  │
+        │ MalwareBazaar     │   │  Alert Table · n8n     │
+        │                   │   │  Status Cards          │
+        │ → Discord / Slack │   └────────────────────────┘
+        └───────────────────┘
+```
+
+---
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| **Frontend** | Next.js 14, React 18, TypeScript, Tailwind CSS, Recharts |
+| **Backend** | Next.js API Routes (Node.js), Jose (JWT HS256) |
+| **Database** | Supabase (PostgreSQL) — table + 4 RPC functions |
+| **Automation** | n8n (self-hosted) — 3 workflows |
+| **Security data** | Wazuh 4.9 — XDR/SIEM agent + manager |
+| **Threat intel** | VirusTotal API, AbuseIPDB API, MalwareBazaar API |
+| **Notifications** | Discord Webhook, Slack |
+| **Deployment** | Docker, Docker Compose, Vercel |
+
+---
+
+## Quick start
 
 ```bash
 git clone https://github.com/S2K7x/mini-soc.git
@@ -14,470 +101,132 @@ cd mini-soc
 ./install.sh
 ```
 
-Le script interactif guide toute la configuration en 5 étapes :
-1. Vérifie les prérequis (Docker, Node.js)
-2. Propose un menu pour choisir le mode de lancement
-3. Génère `.env.local` en posant les questions requises (et crée `DASHBOARD_SECRET` automatiquement)
-4. Applique le schéma Supabase (via `supabase` CLI si installée, sinon guide vers le SQL Editor)
-5. Démarre les services
+The interactive script handles prerequisites, environment configuration, Supabase schema setup, and service launch — no manual steps required.
 
-**Modes disponibles dans le script :**
+**Non-interactive flags:**
 
-| Option | Commande équivalente |
-|--------|----------------------|
-| `dev` | `npm run dev` + n8n Docker |
-| `prod` | `npm run build && npm start` + n8n Docker |
-| `docker` | `docker build` + `docker run` + n8n Docker |
-| `full` | `docker compose -f docker-compose.full.yaml up -d --build` |
-| `wazuh` | `full` + instructions Wazuh |
-
-**Lancement direct sans menu interactif :**
 ```bash
-./install.sh --mode full               # tout en Docker
-./install.sh --mode dev                # développement
-./install.sh --mode full --skip-db     # si le schéma est déjà appliqué
-./install.sh --mode dev --env .env.prod  # utiliser un .env existant
+./install.sh --mode dev          # Next.js dev server + n8n in Docker
+./install.sh --mode full         # Everything in Docker Compose
+./install.sh --mode full --skip-db   # Skip schema if already applied
 ```
 
-> Le schéma SQL complet est dans [`supabase/migrations/001_init.sql`](supabase/migrations/001_init.sql) — à appliquer une seule fois dans le SQL Editor Supabase si la CLI n'est pas disponible.
+| Mode | Dashboard | n8n | Database |
+|---|---|---|---|
+| `dev` | `npm run dev` | Docker | Supabase cloud |
+| `prod` | `npm start` | Docker | Supabase cloud |
+| `docker` | Docker | Docker | Supabase cloud |
+| `full` | Docker Compose | Docker Compose | Supabase cloud |
+| `wazuh` | Docker Compose | Docker Compose | Supabase cloud + Wazuh |
 
 ---
 
-## Table des matières
-
-1. [Présentation](#présentation)
-2. [Architecture globale](#architecture-globale)
-3. [Modes de lancement](#modes-de-lancement)
-4. [Configuration Supabase](#configuration-supabase)
-5. [Variables d'environnement](#variables-denvironnement)
-6. [Mode 1 — Dev local (npm)](#mode-1--dev-local-npm)
-7. [Mode 2 — Prod local (npm start)](#mode-2--prod-local-npm-start)
-8. [Mode 3 — App en Docker](#mode-3--app-en-docker)
-9. [Mode 4 — Full Docker (docker-compose)](#mode-4--full-docker-docker-compose)
-10. [Mode 5 — Full local sans cloud (Supabase local)](#mode-5--full-local-sans-cloud-supabase-local)
-11. [Déployer sur Vercel](#déployer-sur-vercel)
-12. [Configurer Wazuh](#configurer-wazuh)
-13. [Configurer n8n](#configurer-n8n)
-14. [Architecture technique](#architecture-technique)
-
----
-
-## Présentation
-
-mini-soc est un dashboard de surveillance sécurité connecté à Supabase (PostgreSQL), alimenté par Wazuh via des workflows n8n. Il affiche :
-
-- **KPIs temps réel** — alertes du jour, queue en attente, alertes critiques, taux d'erreur
-- **Graphique de tendance** — évolution horaire sur 24h
-- **Top règles** — règles Wazuh les plus déclenchées sur 7 jours
-- **IOCs malveillants** — IPs, URLs et hashes détectés
-- **Statut des workflows** — état en direct des automatisations n8n
-
-Le dashboard se rafraîchit automatiquement toutes les 30 secondes.
-
----
-
-## Architecture globale
-
-```
-Endpoints surveillés
-        │  Wazuh Agent (installé sur chaque machine)
-        │  → chiffré TCP/1514
-        ▼
-  Wazuh Manager
-        │  custom-n8n (script d'intégration)
-        │  → HTTP POST /webhook/wazuh-ingest
-        ▼
-  n8n : soc-ingest
-        │  transform + INSERT
-        ▼
-  Supabase — table alert_queue
-        │
-        ├──► n8n : soc-triage      → enrichissement IOCs, mise à jour statut
-        ├──► n8n : soc-error-handler → retraitement des erreurs
-        │
-        └──► mini-soc Dashboard    → polling /api/stats toutes les 30s
-                    │
-                    ├── KPIs + trend chart
-                    ├── Top règles Wazuh
-                    ├── Table d'alertes + modal JSON brut
-                    ├── Top IOCs malveillants
-                    └── Statut workflows n8n
-```
-
----
-
-## Modes de lancement
-
-| Mode | Dashboard | n8n | Base de données | Usage |
-|------|-----------|-----|-----------------|-------|
-| [Mode 1](#mode-1--dev-local-npm) | `npm run dev` | Docker | Supabase cloud | Développement |
-| [Mode 2](#mode-2--prod-local-npm-start) | `npm start` | Docker | Supabase cloud | Prod en local |
-| [Mode 3](#mode-3--app-en-docker) | Docker seul | Docker | Supabase cloud | App isolée |
-| [Mode 4](#mode-4--full-docker-docker-compose) | Docker Compose | Docker Compose | Supabase cloud | Tout en Docker |
-| [Mode 5](#mode-5--full-local-sans-cloud-supabase-local) | Docker Compose | Docker Compose | Supabase local | Zéro cloud |
-| [Vercel](#déployer-sur-vercel) | Vercel | Docker | Supabase cloud | Déploiement public |
-
----
-
-## Configuration Supabase
-
-> Commun à tous les modes sauf le [Mode 5](#mode-5--full-local-sans-cloud-supabase-local).
-
-### 1. Créer un projet Supabase
-
-1. Aller sur [supabase.com](https://supabase.com) > **New project**
-2. Choisir un nom, un mot de passe et une région
-3. Attendre que le projet soit prêt (~2 min)
-
-### 2. Créer la table `alert_queue`
-
-Dans **SQL Editor**, exécuter :
-
-```sql
-CREATE TABLE alert_queue (
-  id           bigserial PRIMARY KEY,
-  dedup_key    text UNIQUE,
-  raw_alert    jsonb NOT NULL,
-  rule_id      text,
-  rule_level   integer,
-  rule_desc    text,
-  agent_name   text,
-  agent_ip     text,
-  username     text,
-  command      text,
-  iocs         jsonb DEFAULT '[]'::jsonb,
-  status       text DEFAULT 'pending'
-                 CHECK (status IN ('pending','processing','done','error')),
-  retry_count  integer DEFAULT 0,
-  created_at   timestamptz DEFAULT now(),
-  processed_at timestamptz
-);
-```
-
-### 3. Créer les fonctions RPC
-
-```sql
--- Taux d'erreur sur 24h
-CREATE OR REPLACE FUNCTION get_error_rate()
-RETURNS TABLE(error_rate numeric) LANGUAGE sql SECURITY DEFINER AS $$
-  SELECT CASE WHEN COUNT(*) = 0 THEN 0
-    ELSE ROUND(COUNT(*) FILTER (WHERE status = 'error') * 100.0 / COUNT(*), 1)
-  END FROM alert_queue WHERE created_at >= NOW() - INTERVAL '24 hours';
-$$;
-
--- Tendance horaire sur 24h
-CREATE OR REPLACE FUNCTION get_dashboard_trend()
-RETURNS TABLE(hour timestamptz, count bigint, critical bigint) LANGUAGE sql SECURITY DEFINER AS $$
-  SELECT date_trunc('hour', created_at),
-    COUNT(*), COUNT(*) FILTER (WHERE rule_level >= 12)
-  FROM alert_queue WHERE created_at >= NOW() - INTERVAL '24 hours'
-  GROUP BY 1 ORDER BY 1 ASC;
-$$;
-
--- Top 10 règles sur 7 jours
-CREATE OR REPLACE FUNCTION get_top_rules()
-RETURNS TABLE(rule_id text, rule_desc text, count bigint) LANGUAGE sql SECURITY DEFINER AS $$
-  SELECT rule_id, rule_desc, COUNT(*)
-  FROM alert_queue
-  WHERE created_at >= NOW() - INTERVAL '7 days' AND rule_id IS NOT NULL
-  GROUP BY rule_id, rule_desc ORDER BY 3 DESC LIMIT 10;
-$$;
-
--- Top 20 IOCs malveillants sur 7 jours
-CREATE OR REPLACE FUNCTION get_top_iocs()
-RETURNS TABLE(ioc_value text, ioc_type text, verdict text, occurrences bigint, last_seen timestamptz)
-LANGUAGE sql SECURITY DEFINER AS $$
-  SELECT ioc->>'value', ioc->>'type', ioc->>'verdict', COUNT(*), MAX(created_at)
-  FROM alert_queue, jsonb_array_elements(iocs) AS ioc
-  WHERE created_at >= NOW() - INTERVAL '7 days' AND ioc->>'verdict' = 'MALICIOUS'
-  GROUP BY 1,2,3 ORDER BY 4 DESC LIMIT 20;
-$$;
-```
-
-### 4. Récupérer les clés API
-
-Dans Supabase > **Project Settings** > **API** :
-
-- **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
-- **anon / public** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- **service_role** (secret) → `SUPABASE_SERVICE_KEY`
-
-> `SUPABASE_SERVICE_KEY` donne un accès total à la base. Ne jamais l'exposer côté client.
-
----
-
-## Variables d'environnement
+## Environment variables
 
 ```bash
 cp .env.example .env.local
 ```
 
-| Variable | Description | Comment l'obtenir |
-|----------|-------------|-------------------|
-| `NEXT_PUBLIC_SUPABASE_URL` | URL du projet Supabase | Supabase > Settings > API |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clé publique anon | Supabase > Settings > API |
-| `SUPABASE_SERVICE_KEY` | Clé service_role (serveur uniquement) | Supabase > Settings > API |
-| `DASHBOARD_PASSWORD` | Mot de passe d'accès au dashboard | Choisir librement |
-| `DASHBOARD_SECRET` | Clé de signature JWT (min. 32 caractères) | `openssl rand -hex 32` |
-| `N8N_API_URL` | URL de l'instance n8n | Ex: `http://localhost:5678` |
-| `N8N_API_KEY` | API key n8n | n8n > Settings > n8n API |
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key (public) |
+| `SUPABASE_SERVICE_KEY` | Supabase service_role key (**server-side only**) |
+| `DASHBOARD_PASSWORD` | Dashboard login password |
+| `DASHBOARD_SECRET` | JWT signing secret — min 32 chars (`openssl rand -hex 32`) |
+| `N8N_API_URL` | n8n instance URL (`http://localhost:5678`) |
+| `N8N_API_KEY` | n8n API key (Settings → API) |
 
 ---
 
-## Mode 1 — Dev local (npm)
+## Supabase setup
 
-**Prérequis :** Node.js 18+, Docker
+Run [`supabase/migrations/001_init.sql`](supabase/migrations/001_init.sql) in the Supabase SQL Editor once. It creates the `alert_queue` table and all four RPC functions used by the dashboard.
 
-```bash
-npm install
-cp .env.example .env.local   # → éditer .env.local
-docker compose up -d          # lancer n8n
-npm run dev                   # http://localhost:3000
-```
+**Table schema:**
 
----
+| Column | Type | Description |
+|---|---|---|
+| `id` | bigint PK | Auto-increment |
+| `dedup_key` | text unique | SHA-1 fingerprint — prevents duplicate ingestion |
+| `raw_alert` | jsonb | Full original Wazuh alert |
+| `rule_id` / `rule_level` / `rule_desc` | text / int / text | Wazuh rule metadata |
+| `agent_name` / `agent_ip` | text | Source endpoint |
+| `iocs` | jsonb | Extracted IOCs: `[{value, type, verdict}]` |
+| `status` | text | `pending` → `processing` → `done` \| `error` |
 
-## Mode 2 — Prod local (npm start)
+**RPC functions:**
 
-**Prérequis :** Node.js 18+, Docker
-
-```bash
-npm install
-cp .env.example .env.local
-npm run build
-docker compose up -d
-npm start                     # http://localhost:3000
-```
-
----
-
-## Mode 3 — App en Docker
-
-**Prérequis :** Docker
-
-```bash
-cp .env.example .env.local
-
-docker build -t mini-soc .
-docker run -d \
-  --name mini-soc-dashboard \
-  --env-file .env.local \
-  -p 3000:3000 \
-  mini-soc
-
-docker compose up -d          # lancer n8n séparément
-```
+| Function | Returns |
+|---|---|
+| `get_error_rate()` | Error % over last 24h |
+| `get_dashboard_trend()` | Hourly counts (total + critical) over 24h |
+| `get_top_rules()` | Top 10 rules by occurrence over 7 days |
+| `get_top_iocs()` | Top 20 MALICIOUS IOCs over 7 days |
 
 ---
 
-## Mode 4 — Full Docker (docker-compose)
+## n8n workflows
 
-Dashboard + n8n en un seul `docker compose up`.
+Import the three workflows from [`n8n_workflows/`](n8n_workflows/) into your n8n instance (Settings → Import).
 
-**Prérequis :** Docker
+### soc-ingest
 
-```bash
-cp .env.example .env.local    # → éditer .env.local
-docker compose -f docker-compose.full.yaml up -d --build
+Triggered by Wazuh webhook. Validates the payload, extracts IOCs (IPs, hashes, domains) from alert fields, deduplicates, and inserts into Supabase.
+
+```
+Webhook ← POST /webhook/wazuh-ingest
+  → Validate payload
+  → Extract IOCs (srcip, dstip, url, sha256, md5)
+  → Filter private/loopback ranges (RFC 1918, ::1)
+  → Build SHA-1 dedup key
+  → Supabase INSERT (conflict on dedup_key → ignore)
+  → Respond 200
 ```
 
-| Service | URL |
-|---------|-----|
-| Dashboard | http://localhost:3000 |
-| n8n | http://localhost:5678 |
+### soc-triage
 
-```bash
-# Arrêter
-docker compose -f docker-compose.full.yaml down
+Runs every 30 seconds. Picks up pending alerts, enriches each IOC against three threat intel APIs, posts a formatted alert card to Discord or Slack.
 
-# Logs
-docker compose -f docker-compose.full.yaml logs -f dashboard
-
-# Rebuild après modification du code
-docker compose -f docker-compose.full.yaml up -d --build dashboard
 ```
+Schedule (30s)
+  → Reset stuck jobs (processing > 5 min → pending)
+  → Fetch pending alerts
+  → Check queue (cap 5/cycle, detect saturation > 50)
+  → SplitInBatches: one alert at a time
+      → Init context (loop-break guard: reject non-pending, error bubbles)
+      → Mark processing
+      → IF Has IOCs?
+          ├─ No  → Format message → Discord → Mark done
+          └─ Yes → SplitInBatches: one IOC at a time
+                     → Rate-limit guard (15s between VT calls)
+                     → IP   → VirusTotal + AbuseIPDB   → verdict
+                     → Hash → VirusTotal + MalwareBazaar → verdict
+                     → Domain → VirusTotal              → verdict
+                 → Format Slack message (all verdicts)
+                 → Slack → Mark done
+```
+
+Possible verdicts: `CLEAN` · `SUSPICIOUS` · `MALICIOUS` · `UNKNOWN` (API unavailable)
+
+### soc-error-handler
+
+Retries alerts stuck in `error` status by re-queuing them as `pending`.
 
 ---
 
-## Mode 5 — Full local sans cloud (Supabase local)
+## Wazuh integration
 
-Aucune dépendance cloud. Supabase tourne entièrement via la CLI officielle.
-
-**Prérequis :** Docker, [Supabase CLI](https://supabase.com/docs/guides/cli/getting-started)
+### Setup on the Manager
 
 ```bash
-# Installer la CLI Supabase
-brew install supabase/tap/supabase        # macOS
-# ou : npm install -g supabase            # Linux/Windows
-
-# Initialiser + lancer Supabase en local
-supabase init
-supabase start
-```
-
-La CLI affiche les URLs et clés locales au démarrage :
-
-```
-API URL: http://127.0.0.1:54321
-anon key: eyJhbGc...
-service_role key: eyJhbGc...
-Studio URL: http://127.0.0.1:54323
-```
-
-Créer le schéma dans **Supabase Studio** (http://127.0.0.1:54323) > SQL Editor (même SQL que la section Supabase cloud), puis configurer `.env.local` :
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
-SUPABASE_SERVICE_KEY=<service_role key>
-```
-
-Lancer ensuite le projet avec le Mode 1, 2, ou 4.
-
-```bash
-supabase stop    # pour arrêter Supabase local
-```
-
----
-
-## Déployer sur Vercel
-
-1. Aller sur [vercel.com](https://vercel.com) > **Add New… > Project**
-2. Importer le repo GitHub `S2K7x/mini-soc`
-3. Vercel détecte Next.js automatiquement
-4. Dans **Environment Variables**, ajouter les 7 variables
-5. Cliquer **Deploy**
-
-> Si n8n n'est pas exposé sur internet, les workflow cards affichent "n8n unreachable" — le reste du dashboard fonctionne normalement.
-
----
-
-## Configurer Wazuh
-
-Wazuh est la source d'alertes principale de mini-soc. Il collecte les événements des endpoints (Linux, Windows, macOS) et les envoie à n8n via un script d'intégration.
-
-### Qu'est-ce que Wazuh ?
-
-Wazuh est une plateforme XDR/SIEM open source composée de 4 éléments :
-
-| Composant | Rôle | Port |
-|-----------|------|------|
-| **Wazuh Agent** | Collecte les logs, surveille l'intégrité des fichiers, détecte les vulnérabilités sur l'endpoint | — |
-| **Wazuh Manager** | Reçoit les événements des agents, les décode, applique les règles, génère les alertes | 1514, 1515, 55000 |
-| **Wazuh Indexer** | Stocke et indexe toutes les alertes (OpenSearch) | 9200 |
-| **Wazuh Dashboard** | Interface web de visualisation et de gestion | 443 |
-
-### Niveaux de sévérité Wazuh
-
-| Niveau | Catégorie | Description |
-|--------|-----------|-------------|
-| 0–2 | Ignoré | Bruit système, aucune action |
-| 3–6 | Bas | Erreurs utilisateur, événements informatifs |
-| 7–9 | Moyen | Patterns suspects, première apparition d'un événement |
-| 10–11 | Élevé | Brute-force, modification de binaires |
-| 12–14 | Critique | Attaques confirmées, corrélations importantes |
-| 15 | Critique maximal | Attaque sévère, zéro faux positif |
-
-**Recommandation** : envoyer à mini-soc les alertes de **niveau ≥ 7** (medium+). Pour un déploiement initial silencieux, commencer à **niveau ≥ 10**.
-
-### Étape 1 — Installer Wazuh Manager
-
-#### Option A : Docker (recommandé pour un lab)
-
-```bash
-# Cloner le repo officiel et se positionner sur la version stable 4.9
-git clone https://github.com/wazuh/wazuh-docker.git
-cd wazuh-docker
-git checkout v4.9.0
-cd single-node
-
-# Générer les certificats TLS (obligatoire avant le premier démarrage)
-docker compose -f generate-indexer-certs.yml run --rm generator
-
-# Lancer les 3 services (Manager + Indexer + Dashboard)
-docker compose up -d
-```
-
-| Service | URL | Identifiants par défaut |
-|---------|-----|--------------------------|
-| Dashboard Wazuh | https://localhost | admin / SecretPassword |
-| Manager API | https://localhost:55000 | wazuh / wazuh |
-| Indexer | https://localhost:9200 | admin / SecretPassword |
-
-> Le fichier `docker-compose.wazuh.yaml` à la racine du repo est fourni comme référence de configuration. Le déploiement officiel s'effectue depuis le repo `wazuh/wazuh-docker` (les certificats et configs générés y sont requis).
-
-#### Option B : Installation native (Ubuntu/Debian)
-
-```bash
-# Script d'installation automatique Wazuh 4.9
-curl -sO https://packages.wazuh.com/4.9/wazuh-install.sh
-sudo bash wazuh-install.sh -a
-```
-
-Ce script installe Manager + Indexer + Dashboard en une seule commande.
-
-### Étape 2 — Installer les agents Wazuh
-
-L'agent doit être installé sur **chaque machine** que tu veux surveiller.
-
-#### Linux (Debian/Ubuntu)
-
-```bash
-# Remplacer WAZUH_MANAGER_IP par l'IP de ton Wazuh Manager
-curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | gpg --dearmor -o /usr/share/keyrings/wazuh.gpg
-echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main" \
-  | tee /etc/apt/sources.list.d/wazuh.list
-apt-get update
-WAZUH_MANAGER="WAZUH_MANAGER_IP" apt-get install wazuh-agent
-systemctl enable --now wazuh-agent
-```
-
-#### Windows (PowerShell, en admin)
-
-```powershell
-# Remplacer WAZUH_MANAGER_IP par l'IP de ton Wazuh Manager
-$env:WAZUH_MANAGER = "WAZUH_MANAGER_IP"
-Invoke-WebRequest -Uri "https://packages.wazuh.com/4.x/windows/wazuh-agent-4.9.0-1.msi" `
-  -OutFile wazuh-agent.msi
-Start-Process msiexec.exe -Wait -ArgumentList `
-  "/i wazuh-agent.msi WAZUH_MANAGER=$env:WAZUH_MANAGER /quiet"
-net start WazuhSvc
-```
-
-#### macOS
-
-```bash
-# Remplacer WAZUH_MANAGER_IP
-curl -s https://packages.wazuh.com/4.x/macos/wazuh-agent-4.9.0-1.pkg \
-  -o wazuh-agent.pkg
-sudo launchctl setenv WAZUH_MANAGER "WAZUH_MANAGER_IP"
-sudo installer -pkg wazuh-agent.pkg -target /
-sudo /Library/Ossec/bin/wazuh-control start
-```
-
-Vérifier que l'agent est actif dans le **Dashboard Wazuh** > Agents.
-
-### Étape 3 — Installer le script d'intégration
-
-Le script `wazuh/custom-n8n` reçoit chaque alerte Wazuh et la transmet au webhook n8n.
-
-```bash
-# Copier le script sur le Wazuh Manager
 cp wazuh/custom-n8n /var/ossec/integrations/custom-n8n
-
-# Permissions obligatoires
 chmod 750 /var/ossec/integrations/custom-n8n
 chown root:wazuh /var/ossec/integrations/custom-n8n
-
-# Installer la dépendance Python
 pip3 install requests
 ```
 
-### Étape 4 — Configurer ossec.conf
-
-Ajouter le bloc d'intégration dans `/var/ossec/etc/ossec.conf`.
-
-Le fichier `wazuh/ossec-integration.conf` contient le bloc à copier-coller.
+Add to `/var/ossec/etc/ossec.conf` (see [`wazuh/ossec-integration.conf`](wazuh/ossec-integration.conf)):
 
 ```xml
 <integration>
@@ -488,139 +237,79 @@ Le fichier `wazuh/ossec-integration.conf` contient le bloc à copier-coller.
 </integration>
 ```
 
-Remplacer `N8N_HOST` par l'IP ou le hostname de ta machine n8n.
-
-Redémarrer le Manager :
-
 ```bash
 systemctl restart wazuh-manager
-# ou
-/var/ossec/bin/wazuh-control restart
-```
-
-Vérifier les logs d'intégration :
-
-```bash
 tail -f /var/ossec/logs/integrations.log
 ```
 
-### Étape 5 — Configurer le workflow n8n soc-ingest
+**Severity levels:** ≥ 7 captures MEDIUM+ events. Use ≥ 10 for a quieter initial deployment.
 
-Le workflow `soc-ingest` dans n8n reçoit les alertes Wazuh et les insère dans Supabase.
+### IOC extraction
 
-**Structure du workflow :**
+| Wazuh field | IOC type |
+|---|---|
+| `data.srcip` / `data.dstip` | IP address |
+| `data.url` | Domain / URL |
+| `syscheck.sha256_after` | SHA-256 file hash |
+| `syscheck.md5_after` | MD5 file hash |
 
-```
-[Webhook]  ←  POST /webhook/wazuh-ingest
-    │
-    ▼
-[Code node]  ←  wazuh/n8n-transform.js (copier-coller ce code)
-    │
-    ▼
-[Supabase : Insert Row]
-    table : alert_queue
-    conflict : dedup_key → ignore (évite les doublons)
-```
-
-Le fichier `wazuh/n8n-transform.js` contient le code du noeud de transformation. Il extrait et mappe tous les champs Wazuh vers le schéma `alert_queue`.
-
-### Correspondance champs Wazuh → alert_queue
-
-| Champ Wazuh | Champ alert_queue | Exemple |
-|-------------|-------------------|---------|
-| `rule.id` | `rule_id` | `"5710"` |
-| `rule.level` | `rule_level` | `10` |
-| `rule.description` | `rule_desc` | `"SSH brute force"` |
-| `agent.name` | `agent_name` | `"web-server-01"` |
-| `agent.ip` | `agent_ip` | `"192.168.1.100"` |
-| `data.srcuser` / `data.dstuser` | `username` | `"admin"` |
-| `full_log` | `command` | Log brut complet |
-| Alert complet | `raw_alert` | JSON Wazuh original |
-| `data.srcip`, `data.url`, `syscheck.sha256_after` | `iocs` | Array d'IOCs extraits |
-
-### IOCs extraits automatiquement
-
-| Source Wazuh | Champ | Type IOC |
-|---|---|---|
-| SSH, auth logs | `data.srcip` | IP source |
-| Réseau | `data.dstip` | IP destination |
-| Web/proxy | `data.url` | URL/domaine |
-| FIM (fichier modifié) | `syscheck.sha256_after` | Hash SHA256 |
-| FIM (fichier modifié) | `syscheck.md5_after` | Hash MD5 |
-| VirusTotal (intégration) | `data.virustotal.source.md5` | Hash MALICIOUS |
-
-### Vérification de l'intégration
-
-```bash
-# Tester manuellement avec un faux événement
-/var/ossec/bin/ossec-logtest
-
-# Surveiller les alertes en temps réel
-tail -f /var/ossec/logs/alerts/alerts.json | python3 -m json.tool
-
-# Vérifier que les alertes arrivent dans Supabase
-# → Dashboard mini-soc > table d'alertes
-```
+Private and loopback ranges are automatically filtered before enrichment.
 
 ---
 
-## Configurer n8n
+## Deploy on Vercel
 
-### Lancer n8n seul
+1. Push to GitHub
+2. Import on [vercel.com](https://vercel.com) — Next.js auto-detected
+3. Add the 7 environment variables
+4. Deploy
 
-```bash
-docker compose up -d
-# → http://localhost:5678
-```
-
-### Workflows attendus
-
-Le dashboard surveille 3 workflows par nom exact :
-
-| Nom | Rôle |
-|-----|------|
-| `soc-ingest` | Reçoit les alertes Wazuh et insère dans `alert_queue` |
-| `soc-triage` | Enrichit les alertes (analyse IOCs, mise à jour statut) |
-| `soc-error-handler` | Retraite les alertes en erreur |
-
-### Générer une API key n8n
-
-n8n > **Settings** > **n8n API** > **Create an API key** → copier dans `N8N_API_KEY`.
+> If your n8n instance is not publicly reachable, workflow status cards show "unreachable" — the rest of the dashboard works normally.
 
 ---
 
-## Architecture technique
-
-### Fichiers du repo
+## Project structure
 
 ```
-app/              → Pages et API routes Next.js
-components/       → Composants UI (dashboard, charts, tables)
-lib/              → Client Supabase, requêtes, types TypeScript
-middleware.ts     → Protection JWT de toutes les routes
+app/
+  api/
+    auth/route.ts          # Login → JWT cookie (24h, HS256)
+    logout/route.ts        # Clear session cookie
+    stats/route.ts         # GET /api/stats — 9 parallel Supabase queries
+  login/page.tsx           # Login page
+  page.tsx                 # Dashboard — SSR, force-dynamic
+  layout.tsx               # Root layout — JetBrains Mono, dark theme
+components/
+  DashboardShell.tsx       # Client wrapper — 30s polling, state management
+  StatCounters.tsx         # KPI cards
+  TrendChart.tsx           # 24h area chart (Recharts)
+  TopRulesChart.tsx        # 7-day bar chart (Recharts)
+  AlertsTable.tsx          # Paginated table + JSON detail modal
+  TopIocsTable.tsx         # MALICIOUS IOC leaderboard
+  WorkflowCards.tsx        # n8n workflow status cards
+lib/
+  supabase-server.ts       # Supabase client (service key, server-only)
+  queries.ts               # getDashboardStats() — 9 parallel queries
+  types.ts                 # TypeScript interfaces
+middleware.ts              # JWT guard — all routes except /login
+n8n_workflows/
+  soc-ingest.json          # Wazuh ingestion workflow
+  soc-triage.json          # IOC enrichment + notification workflow
+  soc-error-handler.json   # Error retry workflow
 wazuh/
-  custom-n8n          → Script Python d'intégration Wazuh→n8n
-  ossec-integration.conf → Bloc ossec.conf à copier sur le Manager
-  n8n-transform.js    → Code node n8n pour transformer les alertes
-docker-compose.yaml          → n8n seul
-docker-compose.full.yaml     → Dashboard + n8n
-docker-compose.wazuh.yaml    → Wazuh Manager + Indexer + Dashboard (référence)
-Dockerfile                   → Build image dashboard (multi-stage, Node 20)
+  custom-n8n               # Python integration script (Wazuh Manager)
+  ossec-integration.conf   # ossec.conf snippet
+  n8n-transform.js         # Code node — alert field normalisation
+supabase/
+  migrations/001_init.sql  # Full schema: table + 4 RPC functions
 ```
 
-### Fichiers Docker
+---
 
-| Fichier | Usage |
-|---------|-------|
-| `Dockerfile` | Build de l'image du dashboard |
-| `.dockerignore` | Exclut node_modules, .next, .env.local |
-| `docker-compose.yaml` | n8n seul |
-| `docker-compose.full.yaml` | Dashboard + n8n ensemble |
-| `docker-compose.wazuh.yaml` | Stack Wazuh complète (référence) |
+## Security notes
 
-### Sécurité
-
-- Toutes les routes sont protégées par un middleware JWT
-- Cookie `dashboard_session` : httpOnly, sameSite: lax, 24h
-- `SUPABASE_SERVICE_KEY` uniquement côté serveur, jamais dans le bundle client
-- Wazuh Manager → n8n : chiffrement TLS recommandé en production
+- `SUPABASE_SERVICE_KEY` is never exposed to the client — server-side API routes only
+- All routes are protected by JWT middleware; unauthenticated requests redirect to `/login`
+- Session cookie is `httpOnly`, `sameSite: lax`, 24h TTL
+- The Wazuh webhook endpoint should be firewalled to the Manager IP in production
+- No credentials are hardcoded anywhere — all secrets are environment variables
