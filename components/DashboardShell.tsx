@@ -153,8 +153,16 @@ export function DashboardShell({ initialData }: DashboardShellProps) {
             <div className="text-xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>
               Overview
             </div>
-            <div className="font-mono text-[12px] mt-0.5" style={{ color: 'var(--muted)' }}>
+            <div className="font-mono text-[12px] mt-0.5 flex items-center gap-2" style={{ color: 'var(--muted)' }}>
               Last sync · {secsAgo}s ago · polling every 30s
+              {secsAgo > 90 && (
+                <span
+                  className="font-mono text-[10px] px-1.5 py-px rounded"
+                  style={{ background: 'var(--yellow-dim)', color: 'var(--yellow)' }}
+                >
+                  stale
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -208,7 +216,7 @@ function NavItem({
 }) {
   return (
     <div
-      className={`nav-active-indicator relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-[8px] text-[13px] font-semibold transition-all duration-150 cursor-pointer ${
+      className={`relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-[8px] text-[13px] font-semibold transition-all duration-150 cursor-pointer ${
         active ? '' : 'hover:bg-[#161b22] hover:text-[#e6edf3]'
       }`}
       style={

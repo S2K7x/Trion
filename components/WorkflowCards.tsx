@@ -20,13 +20,13 @@ function timeAgo(iso: string | null): string {
   } catch { return '—' }
 }
 
-function WorkflowCard({ workflow }: { workflow: WorkflowStatus }) {
+function WorkflowCard({ workflow, isLast }: { workflow: WorkflowStatus; isLast: boolean }) {
   const unreachable = !workflow.active && workflow.last_exec === null
 
   return (
     <div
       className="flex items-center gap-3 px-5 py-[11px]"
-      style={{ borderBottom: '1px solid var(--border)' }}
+      style={isLast ? undefined : { borderBottom: '1px solid var(--border)' }}
     >
       <span
         className={`w-2 h-2 rounded-full shrink-0 ${workflow.active ? 'animate-trion-pulse' : ''}`}
@@ -75,12 +75,7 @@ export function WorkflowCards({ workflows }: WorkflowCardsProps) {
 
       <div>
         {workflows.map((wf, i) => (
-          <div
-            key={wf.name}
-            style={i === workflows.length - 1 ? {} : undefined}
-          >
-            <WorkflowCard workflow={wf} />
-          </div>
+          <WorkflowCard key={wf.name} workflow={wf} isLast={i === workflows.length - 1} />
         ))}
         {workflows.length === 0 && (
           <div className="font-mono text-[12px] py-8 text-center" style={{ color: 'var(--border-2)' }}>

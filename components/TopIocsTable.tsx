@@ -5,11 +5,19 @@ interface TopIocsTableProps {
 }
 
 
-function typeStyle(type: string): { bg: string; color: string } {
+const TYPE_LABEL: Record<string, string> = {
+  ip:     'IP',
+  hash:   'MD5',
+  domain: 'URL',
+  url:    'URL',
+}
+
+function typeStyle(type: string): { bg: string; color: string; label: string } {
   const t = type.toLowerCase()
-  if (t === 'ip')   return { bg: 'var(--accent-dim)', color: 'var(--accent)' }
-  if (t === 'hash') return { bg: 'var(--yellow-dim)', color: 'var(--yellow)' }
-  return              { bg: 'var(--red-dim)',    color: 'var(--red)' }
+  const label = TYPE_LABEL[t] ?? type.slice(0, 3).toUpperCase()
+  if (t === 'ip')   return { bg: 'var(--accent-dim)', color: 'var(--accent)',  label }
+  if (t === 'hash') return { bg: 'var(--yellow-dim)', color: 'var(--yellow)', label }
+  return                   { bg: 'var(--red-dim)',    color: 'var(--red)',     label }
 }
 
 function scoreColor(occ: number): string {
@@ -54,7 +62,7 @@ export function TopIocsTable({ iocs }: TopIocsTableProps) {
                   className="font-mono text-[9px] font-medium tracking-[0.06em] uppercase px-1.5 py-0.5 rounded shrink-0 w-8 text-center"
                   style={{ background: ts.bg, color: ts.color }}
                 >
-                  {ioc.ioc_type.length > 4 ? ioc.ioc_type.slice(0, 3) : ioc.ioc_type}
+                  {ts.label}
                 </span>
                 <span
                   className="font-mono text-[11px] flex-1 truncate"
