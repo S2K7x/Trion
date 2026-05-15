@@ -36,17 +36,28 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{ background: 'var(--bg)' }}
+    >
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <span className="inline-block w-2 h-2 rounded-full bg-[#ef4444] mr-2 align-middle" />
-          <span className="text-[#e5e5e5] text-lg font-mono tracking-wider">mini-soc</span>
+          <span className="inline-block w-2 h-2 rounded-full bg-trion-red mr-2 align-middle" />
+          <span className="font-mono text-[13px] tracking-[0.06em]" style={{ color: 'var(--text)' }}>
+            Trion · SOC
+          </span>
         </div>
 
-        <div className="bg-[#111111] border border-[#222222] rounded p-6">
+        <div
+          className="rounded-[12px] p-6"
+          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+        >
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-[#555555] text-xs mb-1 font-mono uppercase tracking-widest">
+              <label
+                className="block font-mono text-[10px] font-medium tracking-[0.08em] uppercase mb-1.5"
+                style={{ color: 'var(--muted)' }}
+              >
                 password
               </label>
               <input
@@ -55,19 +66,31 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 autoFocus
                 required
-                className="w-full bg-[#0a0a0a] border border-[#333333] text-[#e5e5e5] font-mono text-sm px-3 py-2 rounded outline-none focus:border-[#3b82f6] transition-colors"
+                className="w-full font-mono text-[13px] px-3 py-2 rounded outline-none transition-colors"
+                style={{
+                  background: 'var(--bg)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text)',
+                }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
+                onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
                 placeholder="········"
               />
             </div>
 
             {error && (
-              <p className="text-[#ef4444] text-xs font-mono">{error}</p>
+              <p className="font-mono text-[11px]" style={{ color: 'var(--red)' }}>{error}</p>
             )}
 
             <button
               type="submit"
               disabled={loading || !password}
-              className="w-full bg-[#1a1a1a] border border-[#333333] text-[#e5e5e5] font-mono text-sm px-3 py-2 rounded hover:border-[#3b82f6] hover:text-[#3b82f6] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full font-mono text-[12px] px-3 py-2 rounded border transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed hover:border-trion-accent hover:text-trion-accent"
+              style={{
+                background: 'var(--surface-2)',
+                borderColor: 'var(--border-2)',
+                color: 'var(--muted)',
+              }}
             >
               {loading ? 'authenticating...' : 'authenticate →'}
             </button>
