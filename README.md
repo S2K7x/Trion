@@ -10,7 +10,20 @@
   <img src="https://img.shields.io/badge/n8n-automation-ef6c00" />
   <img src="https://img.shields.io/badge/Docker-ready-2496ed?logo=docker&logoColor=white" />
   <img src="https://img.shields.io/badge/Vercel-deployable-black?logo=vercel" />
+  <img src="https://img.shields.io/badge/demo-live-brightgreen?style=flat-square" alt="Live Demo" />
 </p>
+
+---
+
+## Live Demo
+
+👉 **[mini-soc.vercel.app](https://mini-soc.vercel.app)**
+
+| Field    | Value       |
+|----------|-------------|
+| Password | `demo1234`  |
+
+> Demo data only — no real alerts. Refreshes every 30 seconds.
 
 ---
 

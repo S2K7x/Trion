@@ -9,16 +9,30 @@ interface StatCardProps {
   value: string | number
   sub: string
   accentColor: string
+  orbClass: string
 }
 
-function StatCard({ label, value, sub, accentColor }: StatCardProps) {
+function StatCard({ label, value, sub, accentColor, orbClass }: StatCardProps) {
   return (
-    <div className="bg-[#111111] border border-[#222222] rounded p-4">
-      <div className="text-[#555555] text-xs font-mono uppercase tracking-widest mb-2">{label}</div>
-      <div className="text-2xl font-mono font-bold mb-1" style={{ color: accentColor }}>
+    <div
+      className={`stat-orb ${orbClass} relative rounded-[12px] p-5 border transition-all duration-200 hover:border-[rgba(255,255,255,0.10)]`}
+      style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+    >
+      <div
+        className="text-[11px] font-semibold tracking-[0.06em] uppercase mb-2.5"
+        style={{ color: 'var(--muted)' }}
+      >
+        {label}
+      </div>
+      <div
+        className="text-[28px] font-bold leading-none"
+        style={{ color: accentColor, letterSpacing: '-0.03em' }}
+      >
         {value}
       </div>
-      <div className="text-[#555555] text-xs font-mono">{sub}</div>
+      <div className="font-mono text-[11px] mt-1.5" style={{ color: 'var(--muted)' }}>
+        {sub}
+      </div>
     </div>
   )
 }
@@ -26,32 +40,37 @@ function StatCard({ label, value, sub, accentColor }: StatCardProps) {
 export function StatCounters({ counters }: StatCountersProps) {
   const errorRateDisplay =
     counters.error_rate != null ? `${Number(counters.error_rate).toFixed(1)}%` : '0.0%'
+  const errorHigh = Number(counters.error_rate) > 5
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       <StatCard
-        label="alerts today"
+        label="Alerts Today"
         value={counters.today}
-        sub="last 24h"
-        accentColor="#3b82f6"
+        sub="↑ last 24h"
+        accentColor="var(--accent)"
+        orbClass="stat-orb-blue"
       />
       <StatCard
-        label="queue depth"
+        label="Pending"
         value={counters.queue_depth}
-        sub="pending"
-        accentColor="#eab308"
+        sub="queue depth"
+        accentColor="var(--yellow)"
+        orbClass="stat-orb-yellow"
       />
       <StatCard
-        label="critical (24h)"
+        label="Critical (24h)"
         value={counters.critical}
-        sub="rule_level ≥ 12"
-        accentColor="#ef4444"
+        sub="rule level ≥ 12"
+        accentColor="var(--red)"
+        orbClass="stat-orb-red"
       />
       <StatCard
-        label="error rate"
+        label="Error Rate"
         value={errorRateDisplay}
         sub="status = error"
-        accentColor={Number(counters.error_rate) > 5 ? '#ef4444' : '#22c55e'}
+        accentColor={errorHigh ? 'var(--red)' : 'var(--green)'}
+        orbClass={errorHigh ? 'stat-orb-red' : 'stat-orb-green'}
       />
     </div>
   )
