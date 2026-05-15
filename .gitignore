@@ -18,6 +18,7 @@
 
 # misc
 .DS_Store
+**/.DS_Store
 *.pem
 
 # debug
@@ -35,5 +36,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# n8n local data (SQLite, logs, config — ne pas committer)
+# n8n local data (SQLite, logs, config — do not commit)
 n8n_data/
+
+# Claude Code internal files
+.claude/

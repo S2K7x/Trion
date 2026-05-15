@@ -1,6 +1,18 @@
 import { SignJWT } from 'jose'
+import { timingSafeEqual } from 'crypto'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+
+function safeCompare(a: string, b: string): boolean {
+  try {
+    const aBuf = Buffer.from(a)
+    const bBuf = Buffer.from(b)
+    if (aBuf.length !== bBuf.length) return false
+    return timingSafeEqual(aBuf, bBuf)
+  } catch {
+    return false
+  }
+}
 
 export async function POST(request: NextRequest) {
   let body: unknown
@@ -11,8 +23,9 @@ export async function POST(request: NextRequest) {
   }
 
   const { password } = body as { password?: string }
+  const expected = process.env.DASHBOARD_PASSWORD ?? ''
 
-  if (!password || password !== process.env.DASHBOARD_PASSWORD) {
+  if (!password || !safeCompare(password, expected)) {
     return NextResponse.json({ error: 'Invalid password' }, { status: 401 })
   }
 
