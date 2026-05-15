@@ -1,13 +1,8 @@
 'use client'
 
 import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
+  AreaChart, Area, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, CartesianGrid,
 } from 'recharts'
 import type { TrendPoint } from '@/lib/types'
 
@@ -18,9 +13,7 @@ interface TrendChartInnerProps {
 function formatHour(iso: string): string {
   try {
     return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-  } catch {
-    return iso
-  }
+  } catch { return iso }
 }
 
 export default function TrendChartInner({ trend }: TrendChartInnerProps) {
@@ -32,47 +25,47 @@ export default function TrendChartInner({ trend }: TrendChartInnerProps) {
   }))
 
   return (
-    <ResponsiveContainer width="100%" height={200}>
-      <AreaChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
+    <ResponsiveContainer width="100%" height={140}>
+      <AreaChart data={data} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
         <XAxis
           dataKey="hour"
-          tick={{ fill: '#555555', fontSize: 10, fontFamily: 'monospace' }}
-          axisLine={{ stroke: '#333333' }}
+          tick={{ fill: '#7d8590', fontSize: 9, fontFamily: 'var(--font-dm-mono, monospace)' }}
+          axisLine={{ stroke: 'rgba(255,255,255,0.06)' }}
           tickLine={false}
           interval="preserveStartEnd"
         />
         <YAxis
-          tick={{ fill: '#555555', fontSize: 10, fontFamily: 'monospace' }}
-          axisLine={{ stroke: '#333333' }}
+          tick={{ fill: '#7d8590', fontSize: 9, fontFamily: 'var(--font-dm-mono, monospace)' }}
+          axisLine={{ stroke: 'rgba(255,255,255,0.06)' }}
           tickLine={false}
         />
         <Tooltip
           contentStyle={{
-            background: '#111111',
-            border: '1px solid #333333',
-            borderRadius: '4px',
-            fontFamily: 'monospace',
-            fontSize: '12px',
-            color: '#e5e5e5',
+            background: '#161b22',
+            border: '1px solid rgba(255,255,255,0.10)',
+            borderRadius: '8px',
+            fontFamily: 'var(--font-dm-mono, monospace)',
+            fontSize: '11px',
+            color: '#e6edf3',
           }}
-          labelStyle={{ color: '#777777' }}
+          labelStyle={{ color: '#7d8590' }}
         />
         <Area
           type="monotone"
           dataKey="count"
-          stroke="#3b82f6"
-          fill="#3b82f6"
-          fillOpacity={0.1}
+          stroke="#58a6ff"
+          fill="#58a6ff"
+          fillOpacity={0.08}
           strokeWidth={1.5}
           name="total"
         />
         <Area
           type="monotone"
           dataKey="critical"
-          stroke="#ef4444"
-          fill="#ef4444"
-          fillOpacity={0.1}
+          stroke="#f85149"
+          fill="#f85149"
+          fillOpacity={0.08}
           strokeWidth={1.5}
           name="critical"
         />

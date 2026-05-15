@@ -1,13 +1,8 @@
 'use client'
 
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
+  BarChart, Bar, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, Cell,
 } from 'recharts'
 import type { TopRule } from '@/lib/types'
 
@@ -27,41 +22,37 @@ export default function TopRulesChartInner({ rules }: TopRulesChartInnerProps) {
 
   return (
     <ResponsiveContainer width="100%" height={Math.max(160, data.length * 28)}>
-      <BarChart
-        data={data}
-        layout="vertical"
-        margin={{ top: 0, right: 10, left: 0, bottom: 0 }}
-      >
+      <BarChart data={data} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
         <XAxis
           type="number"
-          tick={{ fill: '#555555', fontSize: 10, fontFamily: 'monospace' }}
-          axisLine={{ stroke: '#333333' }}
+          tick={{ fill: '#7d8590', fontSize: 9, fontFamily: 'var(--font-dm-mono, monospace)' }}
+          axisLine={{ stroke: 'rgba(255,255,255,0.06)' }}
           tickLine={false}
         />
         <YAxis
           type="category"
           dataKey="name"
           width={170}
-          tick={{ fill: '#999999', fontSize: 10, fontFamily: 'monospace' }}
+          tick={{ fill: '#7d8590', fontSize: 9, fontFamily: 'var(--font-dm-mono, monospace)' }}
           axisLine={false}
           tickLine={false}
         />
         <Tooltip
           contentStyle={{
-            background: '#111111',
-            border: '1px solid #333333',
-            borderRadius: '4px',
-            fontFamily: 'monospace',
-            fontSize: '12px',
-            color: '#e5e5e5',
+            background: '#161b22',
+            border: '1px solid rgba(255,255,255,0.10)',
+            borderRadius: '8px',
+            fontFamily: 'var(--font-dm-mono, monospace)',
+            fontSize: '11px',
+            color: '#e6edf3',
           }}
-          cursor={{ fill: '#1a1a1a' }}
+          cursor={{ fill: 'rgba(255,255,255,0.03)' }}
         />
-        <Bar dataKey="count" radius={[0, 2, 2, 0]} name="hits">
+        <Bar dataKey="count" radius={[0, 3, 3, 0]} name="hits">
           {data.map((_, index) => (
             <Cell
               key={index}
-              fill={index === 0 ? '#ef4444' : index < 3 ? '#f97316' : '#3b82f6'}
+              fill={index === 0 ? '#f85149' : index < 3 ? '#f0883e' : '#58a6ff'}
             />
           ))}
         </Bar>

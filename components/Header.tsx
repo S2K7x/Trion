@@ -5,42 +5,68 @@ interface HeaderProps {
   onLogout: () => void
 }
 
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString('en-GB', {
+export function Header({ lastUpdate, onLogout }: HeaderProps) {
+  const timeStr = lastUpdate.toLocaleTimeString('en-GB', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
   })
-}
 
-function formatDate(date: Date): string {
-  return date.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
-}
-
-export function Header({ lastUpdate, onLogout }: HeaderProps) {
   return (
-    <header className="flex items-center justify-between py-3 px-4 border-b border-[#222222]">
-      <div className="flex items-center gap-2">
-        <span className="inline-block w-2 h-2 rounded-full bg-[#22c55e] animate-pulse" />
-        <span className="text-[#e5e5e5] font-mono font-semibold tracking-wider">mini-soc</span>
+    <header
+      className="flex items-center gap-4 px-6 h-full"
+      style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}
+    >
+      {/* Logo */}
+      <a
+        href="#"
+        className="flex items-center gap-2.5 text-[16px] font-bold tracking-tight shrink-0 no-underline"
+        style={{ color: 'var(--text)', letterSpacing: '-0.02em' }}
+      >
+        <div
+          className="logo-diamond relative w-7 h-7 rounded-[6px] flex items-center justify-center overflow-hidden shrink-0"
+          style={{ background: 'var(--accent)' }}
+        />
+        Trion
+      </a>
+
+      <div className="flex-1" />
+
+      {/* n8n pill */}
+      <div
+        className="flex items-center gap-1.5 font-mono text-[11px] px-2.5 py-1 rounded-full border"
+        style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--muted)' }}
+      >
+        <span className="animate-trion-pulse w-1.5 h-1.5 rounded-full bg-[#3fb950] shrink-0" />
+        n8n · live
       </div>
 
-      <div className="text-[#555555] text-xs font-mono">
-        last update:{' '}
-        <span className="text-[#777777]">
-          {formatDate(lastUpdate)} · {formatTime(lastUpdate)}
-        </span>
+      {/* Wazuh pill */}
+      <div
+        className="flex items-center gap-1.5 font-mono text-[11px] px-2.5 py-1 rounded-full border"
+        style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--muted)' }}
+      >
+        <span className="text-[#58a6ff] text-[10px]">■</span>
+        Wazuh 4.9
       </div>
 
+      {/* Sync time */}
+      <div className="font-mono text-[11px]" style={{ color: 'var(--muted)' }}>
+        {timeStr}
+      </div>
+
+      {/* Logout as avatar button */}
       <button
         onClick={onLogout}
-        className="text-[#555555] text-xs font-mono border border-[#333333] px-3 py-1 rounded hover:border-[#ef4444] hover:text-[#ef4444] transition-colors"
+        className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold border transition-all duration-150 hover:border-[rgba(255,255,255,0.20)] hover:text-[#e6edf3]"
+        style={{
+          background: 'var(--surface-2)',
+          borderColor: 'var(--border-2)',
+          color: 'var(--muted)',
+        }}
+        title="Logout"
       >
-        logout
+        DM
       </button>
     </header>
   )

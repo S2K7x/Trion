@@ -17,40 +17,32 @@ function timeAgo(iso: string | null): string {
     const h = Math.floor(m / 60)
     if (h < 24) return `${h}h ago`
     return `${Math.floor(h / 24)}d ago`
-  } catch {
-    return '—'
-  }
+  } catch { return '—' }
 }
 
 function WorkflowCard({ workflow }: { workflow: WorkflowStatus }) {
   const unreachable = !workflow.active && workflow.last_exec === null
 
   return (
-    <div className="bg-[#0d0d0d] border border-[#1e1e1e] rounded p-3">
-      <div className="flex items-center gap-2 mb-1">
-        <span
-          className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${
-            workflow.active ? 'bg-[#22c55e] animate-pulse' : 'bg-[#ef4444]'
-          }`}
-        />
-        <span className="text-[#e5e5e5] text-xs font-mono font-semibold truncate">
+    <div
+      className="flex items-center gap-3 px-5 py-[11px]"
+      style={{ borderBottom: '1px solid var(--border)' }}
+    >
+      <span
+        className={`w-2 h-2 rounded-full shrink-0 ${workflow.active ? 'animate-trion-pulse' : ''}`}
+        style={{ background: workflow.active ? 'var(--green)' : unreachable ? 'var(--yellow)' : 'var(--red)' }}
+      />
+      <div className="flex-1 min-w-0">
+        <div className="text-[12px] font-semibold truncate" style={{ color: 'var(--text)' }}>
           {workflow.name}
-        </span>
-      </div>
-      <div className="text-[#555555] text-xs font-mono">
-        {unreachable ? (
-          <span className="text-[#eab308]">n8n unreachable</span>
-        ) : workflow.active ? (
-          <span className="text-[#22c55e]">active</span>
-        ) : (
-          <span className="text-[#ef4444]">inactive</span>
-        )}
-      </div>
-      {!unreachable && (
-        <div className="text-[#444444] text-xs font-mono mt-1">
-          last exec: {timeAgo(workflow.last_exec)}
         </div>
-      )}
+        <div className="font-mono text-[10px] mt-0.5" style={{ color: 'var(--muted)' }}>
+          {unreachable ? 'n8n unreachable' : workflow.active ? 'active' : 'inactive'}
+        </div>
+      </div>
+      <div className="font-mono text-[10px] shrink-0" style={{ color: 'var(--muted)' }}>
+        {unreachable ? '—' : timeAgo(workflow.last_exec)}
+      </div>
     </div>
   )
 }
@@ -59,21 +51,42 @@ export function WorkflowCards({ workflows }: WorkflowCardsProps) {
   const allUnreachable = workflows.every((w) => !w.active && w.last_exec === null)
 
   return (
-    <div className="bg-[#111111] border border-[#222222] rounded p-4">
-      <div className="text-[#555555] text-xs font-mono uppercase tracking-widest mb-3">
-        n8n workflows
+    <div
+      className="rounded-[12px] overflow-hidden"
+      style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+    >
+      <div
+        className="px-5 py-4"
+        style={{ borderBottom: '1px solid var(--border)' }}
+      >
+        <div className="text-[13px] font-bold tracking-tight" style={{ color: 'var(--text)' }}>
+          n8n Workflows
+        </div>
       </div>
 
       {allUnreachable && (
-        <div className="mb-3 px-3 py-2 bg-[#1a1500] border border-[#3a2e00] rounded text-[#eab308] text-xs font-mono">
+        <div
+          className="mx-4 mt-3 px-3 py-2 rounded-[8px] font-mono text-[11px]"
+          style={{ background: 'rgba(210,153,34,0.08)', border: '1px solid rgba(210,153,34,0.20)', color: 'var(--yellow)' }}
+        >
           ⚠ n8n unreachable — check Cloudflare Tunnel
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-2">
-        {workflows.map((wf) => (
-          <WorkflowCard key={wf.name} workflow={wf} />
+      <div>
+        {workflows.map((wf, i) => (
+          <div
+            key={wf.name}
+            style={i === workflows.length - 1 ? {} : undefined}
+          >
+            <WorkflowCard workflow={wf} />
+          </div>
         ))}
+        {workflows.length === 0 && (
+          <div className="font-mono text-[12px] py-8 text-center" style={{ color: 'var(--border-2)' }}>
+            no workflows
+          </div>
+        )}
       </div>
     </div>
   )

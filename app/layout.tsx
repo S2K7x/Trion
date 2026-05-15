@@ -1,15 +1,22 @@
 import type { Metadata } from 'next'
-import { JetBrains_Mono } from 'next/font/google'
+import { Syne, DM_Mono } from 'next/font/google'
 import './globals.css'
 
-const jetbrainsMono = JetBrains_Mono({
+const syne = Syne({
   subsets: ['latin'],
-  variable: '--font-mono',
+  variable: '--font-syne',
+  display: 'swap',
+})
+
+const dmMono = DM_Mono({
+  subsets: ['latin'],
+  weight: ['300', '400', '500'],
+  variable: '--font-dm-mono',
   display: 'swap',
 })
 
 export const metadata: Metadata = {
-  title: 'mini-soc',
+  title: 'Trion — SOC Dashboard',
   description: 'Security Operations Dashboard',
 }
 
@@ -19,8 +26,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={jetbrainsMono.variable}>
-      <body className="bg-[#0a0a0a] text-[#e5e5e5] font-mono min-h-screen antialiased">
+    <html lang="en" className={`${syne.variable} ${dmMono.variable}`}>
+      <body
+        className="font-sans antialiased h-full"
+        style={{ background: 'var(--bg)', color: 'var(--text)', fontSize: '14px', lineHeight: '1.5' }}
+      >
         {children}
       </body>
     </html>
