@@ -776,28 +776,60 @@
     },
     {
       "parameters": {
-        "content": "## 2 \u2014 ROUTAGE QUEUE\n**IF Queue Saturated?** \u2192 si flag `_queue_saturated`\n  \u2192 `true` : alerte Slack \u00e9quipe\n\n**SplitInBatches \u2014 Per Alert**\nTraite **1 alerte \u00e0 la fois** via loop-back.\n\u26a0\ufe0f Le loop-back peut ramener des r\u00e9ponses Supabase\n   ou des error-bubbles \u2192 filtr\u00e9s par la garde Section 3.\n",
-        "height": 170,
-        "width": 420,
-        "color": 4
+        "content": "## soc-triage \u2014 Alert Triage & IOC Enrichment\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n**TRIGGER**   Schedule every 30s\n**OUTPUT**    Discord/Slack alert card per alert + Supabase status update\n**DEPENDS ON** soc-ingest (inserts alerts) \u00b7 Supabase alert_queue \u00b7 VirusTotal \u00b7 AbuseIPDB \u00b7 MalwareBazaar\n**AUTHOR**    S2K7x  \u00b7  **UPDATED** 2026-05\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n**PIPELINE**\n`Supabase (pending)` \u2192 `Check Queue` \u2192 `SplitInBatches Per Alert` \u2192 `Init Context` \u2192 `IF Has IOCs?`\n  \u251c\u2500 No IOC  \u2192 `Build No-IOC Message` \u2192 `Discord` \u2192 `Mark Done`\n  \u2514\u2500 Has IOC \u2192 `SplitInBatches Per IOC` \u2192 `VT + AbuseIPDB / MalwareBazaar` \u2192 `Build Slack` \u2192 `Slack` \u2192 `Mark Done`\n",
+        "height": 340,
+        "width": 4220,
+        "color": 7
       },
-      "id": "363eb66e-c54c-47cc-86f5-2422ed9010d9",
+      "id": "99a5a4a5-9f2b-4edb-9e7f-8793260f81bf",
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -528,
-        -32
+        -1160,
+        -380
       ]
     },
     {
       "parameters": {
-        "content": "## 3 \u2014 CONTEXTE ALERTE \u26a0\ufe0f (lecture obligatoire)\n\n**Code \u2014 Init Alert Context** est la garde centrale du workflow.\n\n### Garde anti-boucle infinie\n```\nif (item.error)               return [];  // error-bubble Continue on Fail\nif (item._queue_saturated)    return [];  // sentinel Check Queue\nif (!alertId || !item.rule_id\n    || item.status !== 'pending') return [];  // r\u00e9ponse Supabase loop-back\n```\nSans cette garde \u2192 `Supabase Mark Done` retourne la ligne mise \u00e0 jour\n(status='done') dans SplitInBatches \u2192 trait\u00e9e comme nouvelle alerte \u2192 **boucle infinie de 60+ it\u00e9rations**.\n\n### Pattern sd.currentAlert\nL'alerte est stock\u00e9e dans `$getWorkflowStaticData('global').currentAlert`.\nTous les Code nodes en aval lisent depuis `sd.currentAlert`, **pas** depuis\n`$input.first().json` (Supabase Mark Processing retourne un stream HTTP brut,\npas les donn\u00e9es de l'alerte).\n",
+        "content": "## 1 \u2014 Intake & Cleanup\nRuns every 30 seconds:\n1. **Stuck Job Cleanup** \u2192 reset alerts stuck in `status='processing'` for more than 5 min back to `pending`\n2. **Fetch Pending Alerts** \u2192 SELECT * WHERE status = 'pending' ORDER BY created_at ASC\n3. **Check Queue** \u2192 filters items without `id`, caps at **5 alerts/cycle**, sets `_queue_saturated` flag if > 50 pending\n",
+        "height": 170,
+        "width": 890,
+        "color": 3
+      },
+      "id": "612fb501-9927-4d7b-9511-4da039cfbc0c",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1160,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2 \u2014 Queue Routing\n**IF Queue Saturated?** \u2192 if `_queue_saturated` flag is set\n  \u2192 `true`: send Slack team notification\n\n**SplitInBatches \u2014 Per Alert**\nProcesses **one alert at a time** via loop-back.\n\u26a0\ufe0f Loop-back can carry Supabase response rows or\n   error-bubbles \u2014 both are filtered by the guard\n   in Section 3.\n",
+        "height": 170,
+        "width": 420,
+        "color": 4
+      },
+      "id": "916ace93-51cf-4657-9260-bff87c51b3dc",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -280,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3 \u2014 Alert Context  \u26a0\ufe0f (read this)\n\n**Code \u2014 Init Alert Context** is the central guard of the workflow.\n\n### Infinite-loop guard\n```\nif (item.error)                    return [];  // error-bubble from Continue on Fail\nif (item._queue_saturated)         return [];  // sentinel from Check Queue\nif (!alertId || !item.rule_id\n    || item.status !== 'pending')  return [];  // Supabase Mark Done loop-back\n```\nWithout this guard \u2192 `Supabase Mark Done` returns the updated row\n(status='done') back into SplitInBatches \u2192 treated as a new alert\n\u2192 **infinite loop of 60+ iterations**.\n\n### sd.currentAlert pattern\nThe alert is stored in `$getWorkflowStaticData('global').currentAlert`.\nAll downstream Code nodes read from `sd.currentAlert`, **not** from\n`$input.first().json` \u2014 because Supabase Mark Processing returns a raw\nNode.js HTTP stream, not the alert data.\n",
         "height": 360,
         "width": 660,
         "color": 5
       },
-      "id": "1253d05d-908d-4d14-9cb0-7435404d813c",
+      "id": "154fa8d1-3dbe-4dc6-b33f-6c803b4eddca",
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
@@ -808,97 +840,66 @@
     },
     {
       "parameters": {
-        "content": "## 4 \u2014 CHEMIN SANS IOC\nL'alerte n'a pas d'IOCs \u00e0 enrichir.\n\u2192 **Code \u2014 Build No-IOC Message** lit l'alerte via `sd.currentAlert`\n\u2192 Formate avec pr\u00e9fixe `[LOW/MEDIUM/HIGH/CRITICAL]` selon `rule_level`\n\u2192 **Discord** : envoi du message format\u00e9\n\u2192 **Supabase** : `status = 'done'`\n",
+        "content": "## 4 \u2014 No-IOC Path\nThe alert has no IOCs to enrich.\n\u2192 **Code \u2014 Build No-IOC Message** reads alert from `sd.currentAlert`\n\u2192 Formats with severity prefix `[LOW / MEDIUM / HIGH / CRITICAL]` based on `rule_level`\n\u2192 **Discord**: sends formatted alert card\n\u2192 **Supabase**: sets `status = 'done'`\n",
         "height": 170,
         "width": 620,
         "color": 2
       },
-      "id": "dd97ebed-6476-49f5-b0dc-53e21d09eeaf",
+      "id": "ae635b86-ddd8-45d8-9ea3-a49619e133f7",
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        848,
+        840,
         0
       ]
     },
     {
       "parameters": {
-        "content": "## 5 \u2014 BOUCLE D'ENRICHISSEMENT IOC\n**SplitInBatches \u2014 Per IOC** traite chaque IOC un par un (IP / hash / domaine).\n",
+        "content": "## 5 \u2014 IOC Enrichment Loop\n**SplitInBatches \u2014 Per IOC** processes each IOC one at a time (IP / hash / domain).\n",
         "height": 640,
         "width": 1560,
         "color": 4
       },
-      "id": "b4211d92-c4a7-4a7c-acb3-7346e07f6b1f",
+      "id": "03e782b8-1cca-4b4a-a8dd-59b1cb932bbe",
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        848,
-        464
+        840,
+        450
       ]
     },
     {
       "parameters": {
-        "content": "**VT Rate Limit Guard** \u2192 pause de 15s entre chaque appel VirusTotal (quota gratuit : 4 req/min).\nL'IOC courant est sauvegard\u00e9 dans `sd.currentIoc` pour les Format nodes.\n\n**Routage par type :**\n`ip`     \u2192 VirusTotal IP + AbuseIPDB   \u2192 `Format IP Result`   (verdict si malicious > 5 OU abuse > 50%)\n`hash`   \u2192 VirusTotal Hash + MalwareBazaar \u2192 `Format Hash Result`  (verdict si malicious > 5 OU trouv\u00e9 MB)\n`domain` \u2192 VirusTotal Domain             \u2192 `Format Domain Result` (verdict si malicious > 5)\n\n**Verdicts possibles :** `CLEAN` \u00b7 `SUSPICIOUS` \u00b7 `MALICIOUS` \u00b7 `UNKNOWN` (si API en erreur)\nLes r\u00e9sultats s'accumulent dans `sd.enrichedIocs[]` via `$getWorkflowStaticData('global')`.\n\n\u26a0\ufe0f Les Format nodes lisent via `$items('HTTP \u2014 VT IP')` etc., **pas** via `$input`.\n   Ils g\u00e8rent `vt.error` \u2192 verdict `UNKNOWN` au lieu de faux `CLEAN`.\n",
+        "content": "**VT Rate Limit Guard** \u2192 enforces a 15-second pause between VirusTotal calls (free tier: 4 req/min).\nThe current IOC is saved in `sd.currentIoc` so Format nodes can reference it.\n\n**Routing by IOC type:**\n`ip`     \u2192 VirusTotal IP + AbuseIPDB    \u2192 `Format IP Result`    (MALICIOUS if vt > 5 OR abuse > 50%)\n`hash`   \u2192 VirusTotal Hash + MalwareBazaar \u2192 `Format Hash Result`  (MALICIOUS if vt > 5 OR found in MB)\n`domain` \u2192 VirusTotal Domain             \u2192 `Format Domain Result` (MALICIOUS if vt > 5)\n\n**Possible verdicts:** `CLEAN` \u00b7 `SUSPICIOUS` \u00b7 `MALICIOUS` \u00b7 `UNKNOWN` (when API returns an error)\nResults accumulate in `sd.enrichedIocs[]` via `$getWorkflowStaticData('global')`.\n\n\u26a0\ufe0f Format nodes read responses via `$items('HTTP \u2014 VT IP')` etc. \u2014 they do **not** rely on `$input`.\n   They detect `vt.error` and return `UNKNOWN` verdict instead of a false `CLEAN`.\n",
         "height": 550,
-        "width": 1550
+        "width": 1550,
+        "color": 1
       },
-      "id": "9657ae8a-df94-4abf-bcb4-cb4b8c737ba9",
+      "id": "098fda96-8647-4806-a219-8628376801c5",
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        848,
-        512
+        840,
+        510
       ]
     },
     {
       "parameters": {
-        "content": "## 6 \u2014 OUTPUT FINAL (avec IOC)\n**Code \u2014 Build Slack Message** :\n- Lit `sd.currentAlert` + `sd.enrichedIocs`\n- Vide `sd` apr\u00e8s usage (\u00e9vite donn\u00e9es p\u00e9rim\u00e9es au cycle suivant)\n- Bail-out si `alert.id` absent \u2192 `{ _skipped: true }`\n\n\u2192 **Slack** : message enrichi avec verdicts IOC\n\u2192 **Supabase** : `status = 'done'`\n",
+        "content": "## 6 \u2014 Final Output (with IOCs)\n**Code \u2014 Build Slack Message**:\n- Reads `sd.currentAlert` + `sd.enrichedIocs`\n- Clears `sd` after use to avoid stale data in the next cycle\n- Bail-out if `alert.id` is missing \u2192 returns `{ _skipped: true }`\n\n\u2192 **Slack**: enriched alert card with all IOC verdicts\n\u2192 **Supabase**: sets `status = 'done'`\n",
         "height": 230,
         "width": 660,
         "color": 2
       },
-      "id": "312a61a1-5339-4dcf-b944-370a5719c9fa",
+      "id": "fb7419a9-7e19-445a-a9d1-588157f3dcdd",
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        2368,
-        464
-      ]
-    },
-    {
-      "parameters": {
-        "content": "## soc-triage \u2014 Triage & Enrichissement des Alertes Wazuh\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n**TRIGGER**  Schedule toutes les 30s\n**OUTPUT**   Message Discord/Slack par alerte + mise \u00e0 jour statut Supabase\n**D\u00c9PEND**   soc-ingest (ins\u00e8re les alertes) \u00b7 Supabase alert_queue \u00b7 VirusTotal \u00b7 AbuseIPDB \u00b7 MalwareBazaar\n**AUTEUR**   S2K7x  \u00b7  **MAJ** 2026-05\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n**FLUX GLOBAL**\n`Supabase (pending)` \u2192 `Check Queue` \u2192 `SplitInBatches Per Alert` \u2192 `Init Context` \u2192 `IF IOCs?`\n  \u251c\u2500 Sans IOC \u2192 `Build No-IOC Message` \u2192 `Discord` \u2192 `Mark Done`\n  \u2514\u2500 Avec IOC \u2192 `SplitInBatches Per IOC` \u2192 `VT + AbuseIPDB/MalwareBazaar` \u2192 `Build Slack` \u2192 `Slack` \u2192 `Mark Done`\n",
-        "height": 340,
-        "width": 1068,
-        "color": 7
-      },
-      "id": "47a83e38-ac85-4f50-91bd-ed2369faf913",
-      "name": "Sticky Note1",
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [
-        -64,
-        -704
-      ]
-    },
-    {
-      "parameters": {
-        "content": "## 1 \u2014 INTAKE & NETTOYAGE\nCycle toutes les 30s :\n1. **Stuck Job Cleanup** \u2192 reset les alertes bloqu\u00e9es en `status='processing'` depuis > 5 min\n2. **Fetch Pending Alerts** \u2192 SELECT * WHERE status = 'pending' ORDER BY created_at\n3. **Check Queue** \u2192 filtre les items sans `id`, limite \u00e0 **5 alertes/cycle**, flag `_queue_saturated` si > 50\n",
-        "height": 170,
-        "width": 714,
-        "color": 3
-      },
-      "id": "74ff8dc7-0bfd-495e-b828-fd2af6dcca83",
-      "name": "Sticky Note2",
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [
-        -1136,
-        384
+        2360,
+        450
       ]
     }
   ],
