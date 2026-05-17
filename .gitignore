@@ -41,3 +41,6 @@ n8n_data/
 
 # Claude Code internal files
 .claude/
+
+# Design handoff — working files, not for distribution
+handoff/
