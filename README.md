@@ -1,6 +1,10 @@
-# mini-soc
+<p align="center">
+  <img src="docs/banner.PNG" alt="Trion — Triage at the speed of threat." width="100%"/>
+</p>
 
-**A self-hosted Security Operations Center dashboard** — real-time Wazuh alert triage, automated IOC enrichment via VirusTotal / AbuseIPDB / MalwareBazaar, and instant Discord/Slack notifications. Built as a full end-to-end security pipeline.
+# Trion
+
+**Triage at the speed of threat.** — A self-hosted SOC automation platform for real-time Wazuh alert triage, automated IOC enrichment via VirusTotal / AbuseIPDB / MalwareBazaar, and instant Slack notifications.
 
 <p align="left">
   <img src="https://img.shields.io/badge/Next.js-14-black?logo=next.js" />
@@ -24,6 +28,10 @@
 | Password | `demo1234`  |
 
 > Demo data only — no real alerts. Refreshes every 30 seconds.
+
+<p align="center">
+  <img src="docs/dashboard-preview.png" alt="Trion Dashboard" width="100%"/>
+</p>
 
 ---
 
@@ -53,41 +61,9 @@ mini-soc connects Wazuh agents running on your endpoints to a live dashboard and
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Monitored Endpoints                          │
-│   Wazuh Agent (Linux / Windows / macOS)   ─── TCP/1514 ──►    │
-└──────────────────────────┬──────────────────────────────────────┘
-                           ▼
-              ┌────────────────────────┐
-              │      Wazuh Manager     │
-              │  custom-n8n            │
-              │  POST /webhook/wazuh   │
-              └────────────┬───────────┘
-                           ▼
-              ┌────────────────────────┐
-              │   n8n — soc-ingest     │  Validate · Deduplicate · Extract IOCs
-              │   Webhook → Transform  │  INSERT alert_queue (Supabase)
-              └────────────┬───────────┘
-                           ▼
-         ┌─────────────────────────────────────────────┐
-         │           Supabase — alert_queue             │
-         │  id · rule_id · rule_level · iocs (jsonb)   │
-         │  status: pending → processing → done/error  │
-         └──────────────┬────────────────┬─────────────┘
-                        │                │
-                        ▼                ▼
-        ┌───────────────────┐   ┌────────────────────────┐
-        │ n8n — soc-triage  │   │   mini-soc Dashboard   │
-        │   (every 30s)     │   │   Next.js 14 · SSR     │
-        │                   │   │                        │
-        │ VirusTotal        │   │  KPIs · Trend Chart    │
-        │ AbuseIPDB         │   │  Top Rules · IOC List  │
-        │ MalwareBazaar     │   │  Alert Table · n8n     │
-        │                   │   │  Status Cards          │
-        │ → Discord / Slack │   └────────────────────────┘
-        └───────────────────┘
-```
+<p align="center">
+  <img src="docs/architecture.PNG" alt="Trion Architecture" width="100%"/>
+</p>
 
 ---
 
@@ -109,8 +85,8 @@ mini-soc connects Wazuh agents running on your endpoints to a live dashboard and
 ## Quick start
 
 ```bash
-git clone https://github.com/S2K7x/mini-soc.git
-cd mini-soc
+git clone https://github.com/S2K7x/Trion.git
+cd Trion
 ./install.sh
 ```
 
@@ -199,7 +175,11 @@ Webhook ← POST /webhook/wazuh-ingest
 
 ### soc-triage
 
-Runs every 30 seconds. Picks up pending alerts, enriches each IOC against three threat intel APIs, posts a formatted alert card to Discord or Slack.
+Runs every 30 seconds. Picks up pending alerts, enriches each IOC against three threat intel APIs, posts a formatted alert card to Slack.
+
+<p align="center">
+  <img src="docs/slack-alert.png" alt="Slack Alert Notification" width="80%"/>
+</p>
 
 ```
 Schedule (30s)

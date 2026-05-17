@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <!-- Clipping mask for clean edges -->
+    <clipPath id="bounds">
+      <rect width="200" height="200"/>
+    </clipPath>
+
+    <!-- Prism face gradients -->
+    <linearGradient id="faceTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2d3748"/>
+      <stop offset="100%" stop-color="#1a2030"/>
+    </linearGradient>
+    <linearGradient id="faceLeft" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e2840"/>
+      <stop offset="100%" stop-color="#0d1117"/>
+    </linearGradient>
+    <linearGradient id="faceRight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#222d42"/>
+      <stop offset="100%" stop-color="#161b22"/>
+    </linearGradient>
+
+    <!-- Ray gradients -->
+    <linearGradient id="rayBlue" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#58a6ff" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#58a6ff" stop-opacity="0.15"/>
+    </linearGradient>
+    <linearGradient id="rayGreen" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3fb950" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#3fb950" stop-opacity="0.15"/>
+    </linearGradient>
+    <linearGradient id="rayRed" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f85149" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#f85149" stop-opacity="0.15"/>
+    </linearGradient>
+    <linearGradient id="rayIn" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.1"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.9"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="200" height="200" fill="#0d1117"/>
+
+  <g clip-path="url(#bounds)">
+
+    <!-- Incoming white beam (left side) -->
+    <!-- Thin ray entering from left, pointing to prism left face -->
+    <polygon points="0,92 0,96 88,102 88,98" fill="url(#rayIn)"/>
+
+    <!-- THE PRISM — low-poly triangular prism, 3/4 view -->
+    <!-- Top face (lighter) -->
+    <polygon points="88,52 148,68 148,98 88,82" fill="url(#faceTop)" stroke="#3d4f6e" stroke-width="0.5"/>
+    <!-- Left face (darkest) -->
+    <polygon points="68,100 88,52 88,82 68,130" fill="url(#faceLeft)" stroke="#2a3a52" stroke-width="0.5"/>
+    <!-- Right/bottom face -->
+    <polygon points="88,82 148,98 148,128 88,112" fill="url(#faceRight)" stroke="#2e3f5c" stroke-width="0.5"/>
+    <!-- Bottom-left edge -->
+    <polygon points="68,130 88,112 88,82 68,100" fill="#111827" stroke="#1e2d42" stroke-width="0.5"/>
+
+    <!-- Prism edge highlights -->
+    <line x1="88" y1="52" x2="88" y2="112" stroke="#4a6080" stroke-width="0.8" opacity="0.6"/>
+    <line x1="88" y1="52" x2="148" y2="68" stroke="#5a7090" stroke-width="0.8" opacity="0.5"/>
+    <line x1="68" y1="100" x2="88" y2="52" stroke="#3d5570" stroke-width="0.6" opacity="0.4"/>
+
+    <!-- Refraction exit point on right face -->
+    <!-- The 3 rays exit from the right face around y=98-102 area -->
+
+    <!-- Blue ray (top) — exits upward-right -->
+    <polygon points="148,90 148,94 200,52 200,46" fill="url(#rayBlue)"/>
+    <!-- Bright tip at exit -->
+    <line x1="148" y1="92" x2="200" y2="49" stroke="#58a6ff" stroke-width="1.2" opacity="0.9"/>
+
+    <!-- Green ray (middle) — exits straight right -->
+    <polygon points="148,97 148,101 200,97 200,101" fill="url(#rayGreen)"/>
+    <line x1="148" y1="99" x2="200" y2="99" stroke="#3fb950" stroke-width="1.4" opacity="0.9"/>
+
+    <!-- Red ray (bottom) — exits downward-right -->
+    <polygon points="148,104 148,108 200,148 200,142" fill="url(#rayRed)"/>
+    <line x1="148" y1="106" x2="200" y2="145" stroke="#f85149" stroke-width="1.2" opacity="0.9"/>
+
+    <!-- Sharp accent dots at ray exit points -->
+    <circle cx="148" cy="92" r="1.5" fill="#58a6ff" opacity="0.95"/>
+    <circle cx="148" cy="99" r="1.5" fill="#3fb950" opacity="0.95"/>
+    <circle cx="148" cy="106" r="1.5" fill="#f85149" opacity="0.95"/>
+
+    <!-- Subtle internal refraction line inside prism -->
+    <line x1="88" y1="100" x2="148" y2="99" stroke="#ffffff" stroke-width="0.4" opacity="0.12"/>
+    <line x1="88" y1="100" x2="148" y2="92" stroke="#58a6ff" stroke-width="0.3" opacity="0.15"/>
+    <line x1="88" y1="100" x2="148" y2="106" stroke="#f85149" stroke-width="0.3" opacity="0.15"/>
+
+  </g>
+</svg>
