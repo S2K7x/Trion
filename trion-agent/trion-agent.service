@@ -1,0 +1,13 @@
+[Unit]
+Description=Trion Agent — Daily drift detection
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=AGENT_DIR
+ExecStart=/usr/bin/python3 AGENT_DIR/agent.py --run-now
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
