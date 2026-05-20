@@ -1,6 +1,18 @@
-# trion-agent
+![trion-agent banner](docs/banner.png)
 
-Daily drift detection agent for Linux, macOS, and Windows.
+&nbsp;
+
+![Python](https://img.shields.io/badge/Python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white)
+![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-161b22?style=flat-square)
+![LLM](https://img.shields.io/badge/LLM-Ollama%20%7C%20OpenAI%20%7C%20Anthropic-58a6ff?style=flat-square)
+![License](https://img.shields.io/badge/License-MIT-3fb950?style=flat-square)
+![Part of Trion](https://img.shields.io/badge/Part%20of-Trion-f85149?style=flat-square)
+
+&nbsp;
+
+# trion-agent
+> Silent. Daily. Precise.
+
 Part of the [Trion](https://github.com/S2K7x/Trion) SOC platform.
 
 ---
