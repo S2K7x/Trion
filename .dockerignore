@@ -9,3 +9,9 @@ redis_data
 .vercel
 coverage
 *.tsbuildinfo
+trion-agent/
+wazuh/
+docs/
+handoff/
+supabase/
+install.sh

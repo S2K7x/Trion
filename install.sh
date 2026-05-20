@@ -234,7 +234,7 @@ print_summary() {
       [[ -n "$pw" ]] && echo -e "  Mot de passe  : ${BOLD}${pw}${RESET}"
       echo -e "  n8n        →  ${CYAN}http://localhost:5678${RESET}"
       echo ""
-      local cf="docker-compose.full.yaml"
+      local cf="docker-compose.soc.yaml"
       [[ "$mode" == "docker" ]] && cf="docker-compose.yaml"
       echo -e "  ${DIM}Logs   : ${COMPOSE_CMD} -f ${cf} logs -f${RESET}"
       echo -e "  ${DIM}Arrêt  : ${COMPOSE_CMD} -f ${cf} down${RESET}"
@@ -540,17 +540,17 @@ case "$MODE" in
 
   full)
     check_ports 3000 5678
-    info "Démarrage complet (docker-compose.full.yaml)..."
-    $COMPOSE_CMD -f docker-compose.full.yaml up -d --build \
-      || die "Échec docker compose up. Logs : ${COMPOSE_CMD} -f docker-compose.full.yaml logs"
+    info "Démarrage complet (docker-compose.soc.yaml)..."
+    $COMPOSE_CMD -f docker-compose.soc.yaml up -d --build \
+      || die "Échec docker compose up. Logs : ${COMPOSE_CMD} -f docker-compose.soc.yaml logs"
     ok "Tous les services démarrés"
     print_summary "full"
     ;;
 
   wazuh)
     check_ports 3000 5678
-    info "Démarrage mini-soc (docker-compose.full.yaml)..."
-    $COMPOSE_CMD -f docker-compose.full.yaml up -d --build \
+    info "Démarrage mini-soc (docker-compose.soc.yaml)..."
+    $COMPOSE_CMD -f docker-compose.soc.yaml up -d --build \
       || die "Échec docker compose up."
     ok "Dashboard + n8n démarrés"
     print_summary "wazuh"

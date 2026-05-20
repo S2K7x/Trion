@@ -1,9 +1,27 @@
 services:
+
   dashboard:
     build: .
+    container_name: trion-agent-dashboard
     ports:
       - "8080:8080"
     volumes:
-      - ./data:/app/data        # agent writes here natively, dashboard reads it
-      - ./config.toml:/app/config.toml
+      - ./data:/app/data        # agent writes here, dashboard reads it
+      - ./config.toml:/app/config.toml:ro
     restart: unless-stopped
+    command: python3 agent_ui.py
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/login"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  agent:
+    build: .
+    container_name: trion-agent-scanner
+    volumes:
+      - ./data:/app/data        # shares data dir with dashboard
+      - ./config.toml:/app/config.toml:ro
+    restart: unless-stopped
+    command: python3 agent.py
