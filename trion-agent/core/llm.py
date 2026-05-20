@@ -115,14 +115,29 @@ _MAX_CONTEXT_CHARS = 8000
 _MAX_LINES_PER_SIDE = 50
 
 
+def _system_prompt(os_type: str) -> str:
+    """Return the system-role instructions for the given OS type."""
+    return _SYSTEM_PROMPTS.get(os_type, _SYSTEM_LINUX)
+
+
+def _context_text(context: dict) -> str:
+    """Serialise the diff context as the user-role content."""
+    return f"Context:\n{json.dumps(context, indent=2)}"
+
+
 def build_prompt(context: dict, os_type: str) -> str:
-    """Build the full prompt string combining system instructions and context JSON."""
-    system = _SYSTEM_PROMPTS.get(os_type, _SYSTEM_LINUX)
-    return f"{system}\n\nContext:\n{json.dumps(context, indent=2)}"
+    """Build a single prompt string (used for Ollama which has no role separation)."""
+    return f"{_system_prompt(os_type)}\n\n{_context_text(context)}"
 
 
 def _truncate_context(context: dict) -> dict:
-    """Truncate diffs to cap each side at _MAX_LINES_PER_SIDE lines per command."""
+    """Truncate diffs until the serialised context fits within _MAX_CONTEXT_CHARS.
+
+    Strategy:
+    1. Cap each diff entry at _MAX_LINES_PER_SIDE lines per side.
+    2. If the result still exceeds the char limit, drop diffs from the end
+       until it fits, keeping at least the first entry.
+    """
     truncated = dict(context)
     diffs = []
     for d in context.get("diffs", []):
@@ -133,7 +148,17 @@ def _truncate_context(context: dict) -> dict:
             entry["removed"] = entry["removed"][:_MAX_LINES_PER_SIDE]
         diffs.append(entry)
     truncated["diffs"] = diffs
+
+    # Drop trailing diffs until the context fits within the char budget.
+    while len(diffs) > 1 and len(json.dumps(truncated)) > _MAX_CONTEXT_CHARS:
+        diffs = diffs[:-1]
+        truncated["diffs"] = diffs
+        logger.warning("Context still over limit — dropped a diff entry (%d remaining)", len(diffs))
+
     return truncated
+
+
+_VALID_VERDICTS = frozenset({"BENIGN", "SUSPECT", "CRITICAL"})
 
 
 def parse_response(raw: str) -> dict:
@@ -142,6 +167,13 @@ def parse_response(raw: str) -> dict:
         result = json.loads(raw)
         # Successful parse — ensure no llm_error flag leaks through
         result.pop("llm_error", None)
+        verdict = result.get("verdict", "")
+        if verdict not in _VALID_VERDICTS:
+            logger.warning(
+                "LLM returned unknown verdict %r — treating as SUSPECT", verdict
+            )
+            result["verdict"] = "SUSPECT"
+            result["llm_error"] = True
         return result
     except (json.JSONDecodeError, KeyError) as exc:
         logger.error("LLM response parse error: %s — raw: %.200s", exc, raw)
@@ -170,15 +202,14 @@ def analyze(diffs: list[dict], config: dict, os_type: str) -> dict:
 
     provider = config.get("provider", "ollama")
     timeout = int(config.get("timeout", 30))
-    prompt = build_prompt(context, os_type)
 
     try:
         if provider == "ollama":
-            return _call_ollama(prompt, config, timeout)
+            return _call_ollama(context, os_type, config, timeout)
         elif provider == "openai":
-            return _call_openai(prompt, config, timeout)
+            return _call_openai(context, os_type, config, timeout)
         elif provider == "anthropic":
-            return _call_anthropic(prompt, config, timeout)
+            return _call_anthropic(context, os_type, config, timeout)
         else:
             logger.error("Unknown LLM provider: %s", provider)
             return dict(_FALLBACK)
@@ -186,14 +217,19 @@ def analyze(diffs: list[dict], config: dict, os_type: str) -> dict:
         logger.warning("LLM timeout after %ds (%s)", timeout, provider)
         return dict(_FALLBACK)
     except requests.ConnectionError:
-        logger.error("LLM unreachable (%s @ %s)", provider, config.get("endpoint", ""))
+        # Redact credentials that may be embedded in the endpoint URL.
+        raw_endpoint = config.get("endpoint", "")
+        safe_endpoint = raw_endpoint.split("@")[-1] if "@" in raw_endpoint else raw_endpoint
+        logger.error("LLM unreachable (%s @ %s)", provider, safe_endpoint)
         return dict(_FALLBACK)
     except requests.RequestException as exc:
         logger.error("LLM request failed (%s): %s", provider, exc)
         return dict(_FALLBACK)
 
 
-def _call_ollama(prompt: str, config: dict, timeout: int) -> dict:
+def _call_ollama(context: dict, os_type: str, config: dict, timeout: int) -> dict:
+    # Ollama /api/generate has no role concept — combine into a single prompt string.
+    prompt = build_prompt(context, os_type)
     endpoint = config.get("endpoint", "http://localhost:11434")
     resp = requests.post(
         f"{endpoint}/api/generate",
@@ -204,13 +240,22 @@ def _call_ollama(prompt: str, config: dict, timeout: int) -> dict:
     return parse_response(resp.json()["response"])
 
 
-def _call_openai(prompt: str, config: dict, timeout: int) -> dict:
+def _call_openai(context: dict, os_type: str, config: dict, timeout: int) -> dict:
+    api_key = config.get("api_key", "")
+    if not api_key:
+        logger.error("openai provider requires api_key in config")
+        return dict(_FALLBACK)
     resp = requests.post(
         "https://api.openai.com/v1/chat/completions",
-        headers={"Authorization": f"Bearer {config['api_key']}"},
+        headers={"Authorization": f"Bearer {api_key}"},
         json={
             "model": config["model"],
-            "messages": [{"role": "user", "content": prompt}],
+            # System prompt in the system role; diff data in the user role.
+            # This limits the effectiveness of prompt injection via diff content.
+            "messages": [
+                {"role": "system", "content": _system_prompt(os_type)},
+                {"role": "user", "content": _context_text(context)},
+            ],
             "response_format": {"type": "json_object"},
         },
         timeout=timeout,
@@ -219,17 +264,23 @@ def _call_openai(prompt: str, config: dict, timeout: int) -> dict:
     return parse_response(resp.json()["choices"][0]["message"]["content"])
 
 
-def _call_anthropic(prompt: str, config: dict, timeout: int) -> dict:
+def _call_anthropic(context: dict, os_type: str, config: dict, timeout: int) -> dict:
+    api_key = config.get("api_key", "")
+    if not api_key:
+        logger.error("anthropic provider requires api_key in config")
+        return dict(_FALLBACK)
     resp = requests.post(
         "https://api.anthropic.com/v1/messages",
         headers={
-            "x-api-key": config["api_key"],
+            "x-api-key": api_key,
             "anthropic-version": "2023-06-01",
         },
         json={
             "model": config["model"],
             "max_tokens": 1024,
-            "messages": [{"role": "user", "content": prompt}],
+            # System prompt in the dedicated system parameter; diff data in user message.
+            "system": _system_prompt(os_type),
+            "messages": [{"role": "user", "content": _context_text(context)}],
         },
         timeout=timeout,
     )

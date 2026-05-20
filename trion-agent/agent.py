@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Trion Agent — daily host drift detection."""
 import argparse
 import importlib
@@ -9,6 +10,7 @@ import socket
 import stat
 import sys
 import traceback
+import types
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -18,7 +20,7 @@ except ImportError:
     try:
         import tomli as tomllib  # type: ignore[no-reattr]
     except ImportError:
-        print("ERROR: tomllib/tomli not found. Run: pip install tomllib", file=sys.stderr)
+        print("ERROR: tomli not found. Run: pip install tomli", file=sys.stderr)
         sys.exit(1)
 
 import schedule
@@ -44,7 +46,7 @@ _VERDICT_RANK = {"BENIGN": 0, "SUSPECT": 1, "CRITICAL": 2}
 class _AgentFormatter(logging.Formatter):
     """Uniform log format: TIMESTAMP [trion-agent] [module] LEVEL — message."""
 
-    def format(self, record: logging.LogRecord) -> logging.LogRecord:
+    def format(self, record: logging.LogRecord) -> str:
         name = record.name
         if name in ("trion-agent", "root", "__main__"):
             record.shortname = "agent"
@@ -130,13 +132,23 @@ def load_baseline(baseline_path: str) -> dict:
             corrupted_path.name,
         )
         return {}
+    except OSError as exc:
+        logger.error("Cannot read baseline at %s: %s — will rebuild from scratch.", baseline_path, exc)
+        return {}
 
 
 def save_baseline(baseline_path: str, data: dict) -> None:
-    """Overwrite baseline JSON with new data."""
-    Path(baseline_path).parent.mkdir(parents=True, exist_ok=True)
-    with open(baseline_path, "w") as f:
+    """Atomically overwrite baseline JSON.
+
+    Writes to a temp file then renames so a mid-write SIGKILL cannot leave
+    a partially-written (corrupted) baseline on disk.
+    """
+    p = Path(baseline_path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(".tmp")
+    with open(tmp, "w") as f:
         json.dump(data, f, indent=2)
+    tmp.replace(p)
 
 
 def save_snapshot(snapshots_path: str, module_name: str, snapshot: dict) -> None:
@@ -188,7 +200,7 @@ def cleanup_old_snapshots(snapshots_path: str, retention_days: int) -> None:
 # Module helpers
 # ---------------------------------------------------------------------------
 
-def import_module(module_name: str):
+def import_module(module_name: str) -> types.ModuleType | None:
     """Dynamically import a drift module by logical name."""
     dotted = _MODULE_MAP.get(module_name)
     if not dotted:
@@ -339,6 +351,11 @@ def run_checks(config: dict, os_type: str, dry_run: bool = False) -> None:
                 continue
 
             mod_settings = modules_cfg.get(module_name, {})
+            if module_name not in modules_cfg:
+                logger.warning(
+                    "Module %s has no [modules.%s] config section — running with defaults.",
+                    module_name, module_name,
+                )
             if not mod_settings.get("enabled", True):
                 logger.info("Module %s is disabled — skipping.", module_name)
                 continue

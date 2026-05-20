@@ -40,6 +40,14 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
+      - name: Lint (ruff)
+        working-directory: trion-agent
+        run: python -m ruff check .
+
+      - name: Type check (mypy)
+        working-directory: trion-agent
+        run: python -m mypy agent.py core/ modules/ --ignore-missing-imports
+
       - name: Run tests
         working-directory: trion-agent
         run: python -m pytest tests/ -v

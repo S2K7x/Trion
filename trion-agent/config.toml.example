@@ -1,28 +1,68 @@
+# ── Agent ──────────────────────────────────────────────────────────────────────
 [agent]
+# Modules to run. Available: "config-drift", "threat-detection"
 modules = ["config-drift"]
+
+# Time of day for the daily run (24h, local time). Only used by the built-in
+# scheduler — if you use systemd/LaunchAgent/Task Scheduler this is ignored.
 schedule = "07:00"
+
+# OS type: "auto" (detect at startup), "linux", "macos", "windows"
 os = "auto"
 
+# ── LLM ────────────────────────────────────────────────────────────────────────
 [llm]
+# Provider: "ollama" (local, no API key needed), "openai", "anthropic"
 provider = "ollama"
+
+# Model name — must exist on the chosen provider.
+#   ollama:    llama3.2, mistral, gemma3, ...
+#   openai:    gpt-4o-mini, gpt-4o, ...
+#   anthropic: claude-haiku-4-5, claude-sonnet-4-5, ...
 model = "llama3.2"
+
+# Endpoint URL — only used for Ollama. Ignored for openai/anthropic.
 endpoint = "http://localhost:11434"
+
+# API key — required for openai and anthropic. Leave empty for ollama.
 api_key = ""
+
+# Seconds to wait for an LLM response before declaring a timeout.
+# On timeout the agent falls back to SUSPECT and skips the baseline update.
 timeout = 30
 
+# ── Notifications ──────────────────────────────────────────────────────────────
 [notifications]
+# Slack Incoming Webhook URL.
+# Create one at: https://api.slack.com/messaging/webhooks
 slack_webhook = "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+
+# Which verdicts trigger a Slack message. BENIGN is always silent.
 notify_on = ["SUSPECT", "CRITICAL"]
 
+# ── Baseline ───────────────────────────────────────────────────────────────────
 [baseline]
+# Where the baseline JSON is stored. Never deleted — only overwritten.
 path = "data/baseline.json"
+
+# Where dated snapshots are archived (one file per module per day).
 snapshots_path = "data/snapshots/"
+
+# How many days to keep archived snapshots before deleting them.
 retention_days = 30
 
+# ── Module settings ────────────────────────────────────────────────────────────
+
 [modules.config-drift]
+# Tracks open ports, running services, users, cron jobs, sudoers.
 enabled = true
+# Override the built-in command list. Empty = use built-in defaults.
+# Commands with ; & | ` $ ( ) { } > < newline are rejected for safety.
 commands = []
 
 [modules.threat-detection]
+# Tracks login history, failed auth, SUID files, suspicious processes.
+# Disabled by default — enable only if you accept the performance cost of
+# a full filesystem SUID scan (find /).
 enabled = false
 commands = []

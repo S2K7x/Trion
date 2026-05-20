@@ -1,6 +1,7 @@
 """Send Slack notifications for drift verdicts."""
 import logging
 import socket
+import time
 from datetime import date
 
 import requests
@@ -22,11 +23,14 @@ def notify(verdict_json: dict, config: dict, module_name: str) -> bool:
     Returns True if a message was sent.
     """
     verdict = verdict_json.get("verdict", "BENIGN")
+    llm_error = verdict_json.get("llm_error", False)
     notify_on = config.get("notify_on", ["SUSPECT", "CRITICAL"])
 
-    if verdict == "BENIGN":
+    if verdict == "BENIGN" and not llm_error:
         return False
-    if verdict not in notify_on:
+    # Always notify on LLM errors regardless of notify_on filter — an AI analysis
+    # failure during a real change must never be silently dropped.
+    if not llm_error and verdict not in notify_on:
         return False
 
     webhook = _get_webhook(config)
@@ -38,7 +42,6 @@ def notify(verdict_json: dict, config: dict, module_name: str) -> bool:
     today = str(date.today())
     confidence = verdict_json.get("confidence", 0)
     changes = verdict_json.get("changes", [])
-    llm_error = verdict_json.get("llm_error", False)
 
     changes_list = "\n".join(
         f"• {c.get('item', '?')} — {c.get('reason', '')}"
@@ -63,14 +66,22 @@ def notify(verdict_json: dict, config: dict, module_name: str) -> bool:
     if llm_error:
         text += "\n⚠️ LLM unavailable — verdict is a precautionary SUSPECT"
 
-    try:
-        resp = requests.post(webhook, json={"text": text}, timeout=10)
-        resp.raise_for_status()
-        logger.info("Slack notification sent (%s)", verdict)
-        return True
-    except requests.RequestException as exc:
-        logger.error("Slack notification failed: %s", exc)
-        return False
+    for attempt in range(3):
+        try:
+            resp = requests.post(webhook, json={"text": text}, timeout=10)
+            if resp.status_code == 429:
+                retry_after = int(resp.headers.get("Retry-After", 5))
+                logger.warning("Slack rate-limited — retrying in %ds (attempt %d/3)", retry_after, attempt + 1)
+                time.sleep(retry_after)
+                continue
+            resp.raise_for_status()
+            logger.info("Slack notification sent (%s)", verdict)
+            return True
+        except requests.RequestException as exc:
+            logger.error("Slack notification failed (attempt %d/3): %s", attempt + 1, exc)
+            if attempt < 2:
+                time.sleep(2 ** attempt)
+    return False
 
 
 def notify_agent_error(config: dict, hostname: str, timestamp: str) -> None:

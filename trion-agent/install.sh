@@ -2,7 +2,8 @@
 set -euo pipefail
 
 OS=$(uname -s)
-AGENT_DIR=$(pwd)
+# Use the script's own directory, not the caller's cwd.
+AGENT_DIR=$(cd "$(dirname "$0")" && pwd)
 
 # ── Python version check ─────────────────────────────────────────────────────
 PYTHON_CMD=""
