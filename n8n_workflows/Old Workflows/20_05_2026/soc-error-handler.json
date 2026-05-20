@@ -3,26 +3,26 @@
   "nodes": [
     {
       "parameters": {},
-      "id": "9597e68e-f80c-475e-a683-7ab873413fbd",
+      "id": "err-1",
       "name": "Error Trigger",
       "type": "n8n-nodes-base.errorTrigger",
       "typeVersion": 1,
       "position": [
-        0,
-        0
+        240,
+        304
       ]
     },
     {
       "parameters": {
         "jsCode": "const err = $input.first().json;\nconst wfName = err.workflow?.name || 'unknown-workflow';\nconst nodeName = err.node?.name || 'unknown-node';\nconst errMsg = err.error?.message || JSON.stringify(err).slice(0, 400);\nreturn [{ json: { text: `[SOC-ERROR] workflow: ${wfName} | node: ${nodeName} | error: ${errMsg}` } }];\n"
       },
-      "id": "6d284673-624a-4c8c-8af9-16ea7145115c",
+      "id": "err-2",
       "name": "Format Error Message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        224,
-        0
+        464,
+        304
       ]
     },
     {
@@ -40,21 +40,15 @@
           "mrkdwn": true
         }
       },
-      "id": "8582299f-4d56-4430-90f5-fea36573dfdf",
+      "id": "err-3",
       "name": "Slack — Post Error",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        448,
-        0
+        688,
+        304
       ],
-      "webhookId": "c3b9b34e-1f71-4f8f-b698-05f84905b93f",
-      "credentials": {
-        "slackOAuth2Api": {
-          "id": "baiWomG60yq23dhM",
-          "name": "Slack account"
-        }
-      }
+      "webhookId": "c3b9b34e-1f71-4f8f-b698-05f84905b93f"
     }
   ],
   "pinData": {},
@@ -82,16 +76,15 @@
       ]
     }
   },
-  "active": true,
+  "active": false,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "fd66d0aa-7c28-44f1-9bac-e18f7d73272e",
+  "versionId": "9295e800-d0a9-4226-9b31-4ec0fbe10aa9",
   "meta": {
-    "templateCredsSetupCompleted": true,
-    "instanceId": "72f311f989955af7437d1eef7857c7987a6dedfd10c55e5c77ff24f87ed886f9"
+    "instanceId": "b75864d93eec333fe72e094db00f54c21404138eb5eda9580d5e9d267aac2852"
   },
-  "id": "6bnXF7a1bhg7NYrQ",
+  "id": "QTocVl7dbDPLMLg2",
   "tags": []
 }

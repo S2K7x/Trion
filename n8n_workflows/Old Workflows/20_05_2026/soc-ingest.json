@@ -4,17 +4,17 @@
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "wazuh",
+        "path": "soc/ingest",
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "a358045d-e247-45c5-bdb1-6cd740c82cf3",
+      "id": "ing-1",
       "name": "Webhook — Receive Wazuh Alert",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        0,
-        0
+        240,
+        304
       ],
       "webhookId": "ee5d835b-d41b-4a4f-9aef-a013b728a70e"
     },
@@ -34,65 +34,65 @@
           }
         }
       },
-      "id": "c8479e2e-af8e-4277-b12b-ec1e398603bc",
+      "id": "ing-2",
       "name": "Respond to Webhook — 200 Queued",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
-        224,
-        0
+        464,
+        304
       ]
     },
     {
       "parameters": {
         "jsCode": "const raw  = $input.first().json;\nconst item = raw.body || raw;\nif (!item.rule?.id || item.rule?.level === undefined || !item.agent?.name) {\n  return [];\n}\nif (parseInt(item.rule.level) < 3) return [];\nreturn [{ json: item }];\n"
       },
-      "id": "8110e6cd-dcb3-4a01-9d39-ad266a7e660a",
+      "id": "ing-3",
       "name": "Code — Validate Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        448,
-        0
+        688,
+        304
       ]
     },
     {
       "parameters": {
         "jsCode": "const raw  = $input.first().json;\nconst item = raw.body || raw;\nconst seen = new Set(); const iocs = [];\nconst IP_RE   = /\\b(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\b/g;\nconst HASH_RE = /\\b(?:[a-fA-F0-9]{64}|[a-fA-F0-9]{32})\\b/g;\nconst DOMAIN_RE = /\\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,}\\b/gi;\nfunction addIoc(v,t){const k=t+':'+v.toLowerCase();if(!seen.has(k)){seen.add(k);iocs.push({value:v,type:t});}}\nfunction scan(text){if(!text||typeof text!=='string')return;for(const m of text.matchAll(IP_RE))addIoc(m[0],'ip');for(const m of text.matchAll(HASH_RE))addIoc(m[0],'hash');for(const m of text.matchAll(DOMAIN_RE))addIoc(m[0],'domain');}\n[item.data?.srcip,item.data?.dstip,item.data?.win?.eventdata?.destinationIp,item.agent?.ip].forEach(f=>scan(String(f||'')));\nscan(item.full_log||'');scan(JSON.stringify(item.data||{}));\nreturn [{json:{...item,raw_iocs:iocs}}];\n"
       },
-      "id": "2a8daa89-b954-4525-a2b9-6e009f8a95b7",
+      "id": "ing-4",
       "name": "Code — Extract IOCs",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        672,
-        0
+        912,
+        304
       ]
     },
     {
       "parameters": {
         "jsCode": "const item = $input.first().json;\nconst raw = item.raw_iocs !== undefined ? item : {};\nconst iocSrc = item.raw_iocs || [];\nconst RFC = [/^10\\./,/^172\\.(1[6-9]|2\\d|3[01])\\./,/^192\\.168\\./,/^127\\./,/^::1$/];\nconst NH = 'd41d8cd98f00b204e9800998ecf8427e';\nconst INT = ['.local','.homelab','.internal','.lan'];\nconst iocs = iocSrc.filter(ioc=>{\n  if(ioc.type==='ip')    return !RFC.some(r=>r.test(ioc.value));\n  if(ioc.type==='hash')  return ioc.value.toLowerCase()!==NH;\n  if(ioc.type==='domain')return !INT.some(s=>ioc.value.toLowerCase().endsWith(s));\n  return true;\n});\nconst {raw_iocs,...rest}=item;\nreturn [{json:{...rest,iocs}}];\n"
       },
-      "id": "6660119e-962c-4d59-8b7f-82def657d9b4",
+      "id": "ing-5",
       "name": "Code — Filter Private IOCs",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        880,
-        0
+        1120,
+        304
       ]
     },
     {
       "parameters": {
         "jsCode": "const item = $input.first().json;\nconst crypto = require('crypto');\nconst ruleId    = String(item.rule?.id||'');\nconst agentName = String(item.agent?.name||'');\nconst ts = item.timestamp ? Math.floor(new Date(item.timestamp).getTime()/1000/300) : Math.floor(Date.now()/1000/300);\nconst dedup_key = crypto.createHash('sha1').update(ruleId+agentName+ts).digest('hex');\nreturn [{json:{\n  dedup_key, raw_alert:item,\n  rule_id:ruleId, rule_level:parseInt(item.rule?.level||0),\n  rule_desc:item.rule?.description||'',\n  agent_name:agentName, agent_ip:item.agent?.ip||'',\n  username:item.data?.win?.eventdata?.subjectUserName||item.data?.dstuser||'',\n  command:item.data?.win?.eventdata?.commandLine||item.data?.command||'',\n  iocs:item.iocs||[],\n}}];\n"
       },
-      "id": "3883e0a8-f26d-4d15-a717-05ad62cccb07",
+      "id": "ing-6",
       "name": "Code — Build Dedup Key",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1104,
-        0
+        1344,
+        304
       ]
     },
     {
@@ -132,13 +132,13 @@
           }
         }
       },
-      "id": "03822cfd-6716-47ce-9d16-155b69d6da3d",
+      "id": "ing-7",
       "name": "Supabase — INSERT alert_queue",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1328,
-        0
+        1568,
+        304
       ]
     }
   ],
@@ -216,10 +216,10 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "96e2aa42-3cb9-4693-81e8-e20c130d44ed",
+  "versionId": "27d16815-5f4a-49ea-bab1-67b38510dd36",
   "meta": {
-    "instanceId": "72f311f989955af7437d1eef7857c7987a6dedfd10c55e5c77ff24f87ed886f9"
+    "instanceId": "b75864d93eec333fe72e094db00f54c21404138eb5eda9580d5e9d267aac2852"
   },
-  "id": "x90bergU6p7SJUAc",
+  "id": "Rsbhkp7zLqzrt8of",
   "tags": []
 }
