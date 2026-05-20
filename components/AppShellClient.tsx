@@ -74,6 +74,13 @@ export function AppShellClient({ pending, children }: { pending: number; childre
           </svg>
         }>Workflows</NavItem>
 
+        <NavItem href="/settings" active={pathname === '/settings'} icon={
+          <svg className="w-4 h-4 opacity-70 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <circle cx="8" cy="8" r="2.5"/>
+            <path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M2.93 2.93l1.06 1.06M12.01 12.01l1.06 1.06M2.93 13.07l1.06-1.06M12.01 3.99l1.06-1.06"/>
+          </svg>
+        }>Settings</NavItem>
+
         <div className="mt-auto pt-4" style={{ borderTop: '1px solid var(--border)' }}>
           <NavItem href="/" active={false} icon={
             <svg className="w-4 h-4 opacity-70 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">

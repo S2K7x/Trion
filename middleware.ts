@@ -4,7 +4,13 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  if (pathname.startsWith('/login') || pathname.startsWith('/api/auth') || pathname === '/api/health') {
+  if (
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/api/auth') ||
+    pathname === '/api/health' ||
+    pathname.startsWith('/setup') ||
+    pathname.startsWith('/api/setup')
+  ) {
     return NextResponse.next()
   }
 
