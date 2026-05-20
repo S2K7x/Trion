@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Trion Agent — Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div x-data="dashboard()" x-init="init()">
+
+  <!-- ── KPI row ─────────────────────────────────────────────────── -->
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="stat-label">Last verdict</div>
+      <div class="stat-value verdict-{{ verdict_color }}">{{ verdict if verdict else '—' }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Last run</div>
+      <div class="stat-value small">{{ last_run.timestamp | default('never') }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Diffs found</div>
+      <div class="stat-value">{{ last_run.diffs_found | default('—') }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Baseline</div>
+      <div class="stat-value {% if not baseline_exists %}verdict-red{% else %}verdict-green{% endif %}">
+        {{ 'exists' if baseline_exists else 'none' }}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 30-day verdict chart ───────────────────────────────────── -->
+  <div class="panel">
+    <div class="panel-header">30-day verdict history</div>
+    <div class="panel-body chart-container">
+      <canvas id="verdictChart" height="70"></canvas>
+      <p x-show="chartEmpty" class="chart-empty">No run history yet — click Run now to start.</p>
+    </div>
+  </div>
+
+  <!-- ── Actions ────────────────────────────────────────────────── -->
+  <div class="panel">
+    <div class="panel-header">Actions</div>
+    <div class="panel-body action-row">
+
+      <button class="btn btn-primary" @click="runNow()" :disabled="running">
+        <span x-show="!running">▶ Run now</span>
+        <span x-show="running" class="spinner-inline">◌ Running…</span>
+      </button>
+
+      <button
+        class="btn btn-danger"
+        @click="confirmReset = true"
+        :disabled="!hasBaseline"
+        :title="!hasBaseline ? 'No baseline to reset' : ''"
+      >
+        ↺ Reset baseline
+      </button>
+
+      <!-- Confirm reset dialog -->
+      <div x-show="confirmReset" class="confirm-overlay" @click.self="confirmReset = false">
+        <div class="confirm-dialog">
+          <div class="confirm-title">Reset baseline?</div>
+          <p class="confirm-body">
+            The current baseline will be deleted. The next run will collect a fresh snapshot
+            and will not generate any alerts. Use this after a confirmed intentional change
+            (e.g. new software installed, user added on purpose).
+          </p>
+          <div class="confirm-actions">
+            <button class="btn btn-ghost" @click="confirmReset = false">Cancel</button>
+            <button class="btn btn-danger" @click="resetBaseline()">Yes, reset</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div x-show="toast" x-transition class="toast" :class="toastType">
+      <span x-text="toast"></span>
+    </div>
+  </div>
+
+  <!-- ── Live log stream ────────────────────────────────────────── -->
+  <div class="panel" x-show="showLogs" x-transition>
+    <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center">
+      <span>Live output</span>
+      <button class="btn btn-sm btn-ghost" @click="showLogs = false; closeStream()">✕ Close</button>
+    </div>
+    <div class="log-stream" id="log-stream">
+      <div x-show="logLines.length === 0" class="log-empty">Connecting to agent…</div>
+      <template x-for="(line, i) in logLines" :key="i">
+        <div class="log-line" x-text="line"
+             :class="line.includes('ERROR') ? 'log-error' : line.includes('WARNING') ? 'log-warn' : ''"></div>
+      </template>
+    </div>
+  </div>
+
+  <!-- ── Module cards ────────────────────────────────────────────── -->
+  <div class="panel">
+    <div class="panel-header">Modules</div>
+    <div class="panel-body modules-grid">
+      {% for m in module_cards %}
+      <div class="module-card" x-data="moduleToggle('{{ m.name }}', {{ 'true' if m.enabled else 'false' }})">
+        <div class="module-name">{{ m.name }}</div>
+        <div class="module-status">
+          <span class="status-dot" :class="enabled ? 'dot-green' : 'dot-slate'"></span>
+          <span x-text="enabled ? 'enabled' : 'disabled'" class="status-label"></span>
+        </div>
+        <button class="btn btn-sm" :class="enabled ? 'btn-ghost' : 'btn-primary'" @click="toggle()">
+          <span x-text="enabled ? 'Disable' : 'Enable'"></span>
+        </button>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- ── Config summary ─────────────────────────────────────────── -->
+  <div class="panel">
+    <div class="panel-header">Configuration</div>
+    <div class="panel-body config-summary">
+      <div class="cfg-row"><span class="cfg-key">Schedule</span><span class="cfg-val">{{ schedule }} daily</span></div>
+      <div class="cfg-row"><span class="cfg-key">LLM</span><span class="cfg-val">{{ llm_provider }} / {{ llm_model }}</span></div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="/static/app.js"></script>
+{% endblock %}

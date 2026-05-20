@@ -9,7 +9,7 @@ import requests
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from core.llm import analyze, build_prompt
+from core.llm import analyze, build_prompt, parse_response
 
 _OLLAMA_CONFIG = {
     "provider": "ollama",
@@ -94,6 +94,36 @@ class TestLLMAnalyze(unittest.TestCase):
         for d in truncated["diffs"]:
             self.assertLessEqual(len(d.get("added", [])), 50)
             self.assertLessEqual(len(d.get("removed", [])), 50)
+
+
+class TestParseResponse(unittest.TestCase):
+    def test_unknown_verdict_coerced_no_llm_error(self):
+        """LLM returns a valid JSON with a non-standard verdict → coerced to SUSPECT, no llm_error."""
+        raw = json.dumps({
+            "verdict": "SUSPICIOUS",
+            "confidence": 60,
+            "changes": [],
+            "summary": "something weird",
+        })
+        result = parse_response(raw)
+        self.assertEqual(result["verdict"], "SUSPECT")
+        self.assertNotIn("llm_error", result)
+
+    def test_valid_verdict_no_llm_error(self):
+        raw = json.dumps({
+            "verdict": "BENIGN",
+            "confidence": 99,
+            "changes": [],
+            "summary": "all good",
+        })
+        result = parse_response(raw)
+        self.assertEqual(result["verdict"], "BENIGN")
+        self.assertNotIn("llm_error", result)
+
+    def test_malformed_json_sets_llm_error(self):
+        result = parse_response("not json at all")
+        self.assertEqual(result["verdict"], "SUSPECT")
+        self.assertTrue(result.get("llm_error"))
 
 
 if __name__ == "__main__":

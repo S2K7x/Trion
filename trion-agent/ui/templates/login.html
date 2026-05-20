@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trion Agent — Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body class="login-body">
+  <div class="login-card">
+    <div class="login-logo">
+      <span class="brand-icon large">⬡</span>
+      <div>
+        <div class="brand-name large">Trion</div>
+        <div class="brand-sub">Agent Dashboard</div>
+      </div>
+    </div>
+    {% if error %}
+    <div class="alert alert-error">Incorrect password. Try again.</div>
+    {% endif %}
+    <form method="POST" action="/login" class="login-form">
+      <label class="field-label" for="password">Password</label>
+      <input
+        id="password"
+        type="password"
+        name="password"
+        class="field-input"
+        placeholder="Enter dashboard password"
+        autofocus
+        autocomplete="current-password"
+      />
+      <button type="submit" class="btn btn-primary btn-full">Sign in</button>
+    </form>
+    <p class="login-hint">Set your password in <code>config.toml</code> under <code>[ui]</code>.</p>
+  </div>
+</body>
+</html>

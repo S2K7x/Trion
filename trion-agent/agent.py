@@ -4,6 +4,7 @@ import argparse
 import importlib
 import json
 import logging
+import logging.handlers
 import os
 import platform
 import socket
@@ -30,7 +31,7 @@ import schedule
 from core import llm as llm_module
 from core.collector import collect
 from core.differ import diff
-from core.notifier import notify, notify_agent_error
+from core.notifier import notify, notify_agent_error, notify_webhook
 
 _MODULE_MAP = {
     "config-drift": "modules.config_drift",
@@ -71,6 +72,24 @@ def setup_logging(debug: bool = False) -> None:
     root.setLevel(logging.DEBUG if debug else logging.INFO)
 
 
+def setup_file_logging(log_path: str) -> None:
+    """Add a rotating file handler so the dashboard can stream live logs."""
+    try:
+        Path(log_path).parent.mkdir(parents=True, exist_ok=True)
+        handler = logging.handlers.RotatingFileHandler(
+            log_path, maxBytes=500_000, backupCount=2, encoding="utf-8"
+        )
+        handler.setFormatter(
+            _AgentFormatter(
+                fmt="%(asctime)s [trion-agent] [%(shortname)s] %(levelname)s — %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
+            )
+        )
+        logging.getLogger().addHandler(handler)
+    except OSError as exc:
+        logger.warning("Could not open log file %s: %s", log_path, exc)
+
+
 logger = logging.getLogger("trion-agent")
 
 
@@ -93,21 +112,40 @@ def detect_os(cfg_os: str) -> str:
     return "linux"
 
 
-def load_config(path: str = "config.toml") -> dict:
+_REQUIRED_CFG: list[tuple[str, str]] = [
+    ("agent", "modules"),
+    ("llm", "provider"),
+    ("llm", "model"),
+]
+
+
+def validate_config(config: dict[str, Any]) -> None:
+    """Exit with a clear error if required config keys are missing."""
+    for section, key in _REQUIRED_CFG:
+        if key not in config.get(section, {}):
+            logger.error("Missing required config key: [%s].%s", section, key)
+            sys.exit(1)
+
+
+def load_config(path: str = "config.toml") -> dict[str, Any]:
     """Load and return config from a TOML file."""
     config_path = Path(path)
     if not config_path.exists():
         logger.error("config.toml not found. Copy config.toml.example and edit it.")
         sys.exit(1)
-    with open(config_path, "rb") as f:
-        return tomllib.load(f)
+    try:
+        with open(config_path, "rb") as f:
+            return tomllib.load(f)
+    except tomllib.TOMLDecodeError as exc:
+        logger.error("config.toml is malformed: %s", exc)
+        sys.exit(1)
 
 
 # ---------------------------------------------------------------------------
 # Baseline I/O
 # ---------------------------------------------------------------------------
 
-def load_baseline(baseline_path: str) -> dict:
+def load_baseline(baseline_path: str) -> dict[str, Any]:
     """Load baseline JSON.
 
     Returns empty dict on first run. On corruption, renames the file and
@@ -138,7 +176,7 @@ def load_baseline(baseline_path: str) -> dict:
         return {}
 
 
-def save_baseline(baseline_path: str, data: dict) -> None:
+def save_baseline(baseline_path: str, data: dict[str, Any]) -> None:
     """Atomically overwrite baseline JSON.
 
     Writes to a temp file then renames so a mid-write SIGKILL cannot leave
@@ -152,7 +190,7 @@ def save_baseline(baseline_path: str, data: dict) -> None:
     tmp.replace(p)
 
 
-def save_snapshot(snapshots_path: str, module_name: str, snapshot: dict) -> None:
+def save_snapshot(snapshots_path: str, module_name: str, snapshot: dict[str, str]) -> None:
     """Write a dated snapshot for audit trail."""
     Path(snapshots_path).mkdir(parents=True, exist_ok=True)
     filename = (
@@ -163,7 +201,7 @@ def save_snapshot(snapshots_path: str, module_name: str, snapshot: dict) -> None
         json.dump(snapshot, f, indent=2)
 
 
-def save_last_run(data: dict) -> None:
+def save_last_run(data: dict[str, Any]) -> None:
     """Write data/last_run.json; silently ignore write failures."""
     try:
         Path("data").mkdir(parents=True, exist_ok=True)
@@ -171,6 +209,27 @@ def save_last_run(data: dict) -> None:
             json.dump(data, f, indent=2)
     except Exception as exc:
         logger.warning("Failed to write last_run.json: %s", exc)
+
+
+def save_verdict(verdicts_dir: str, module_name: str, verdict: dict[str, Any]) -> None:
+    """Persist LLM verdict JSON so the dashboard can show plain-English summaries."""
+    try:
+        Path(verdicts_dir).mkdir(parents=True, exist_ok=True)
+        p = Path(verdicts_dir) / f"{date.today()}_{module_name.replace('-', '_')}.json"
+        with open(p, "w") as f:
+            json.dump(verdict, f, indent=2)
+    except Exception as exc:
+        logger.warning("Failed to write verdict for %s: %s", module_name, exc)
+
+
+def append_run_history(history_path: str, entry: dict[str, Any]) -> None:
+    """Append one JSONL line to run_history.jsonl for the dashboard chart."""
+    try:
+        Path(history_path).parent.mkdir(parents=True, exist_ok=True)
+        with open(history_path, "a") as f:
+            f.write(json.dumps(entry) + "\n")
+    except Exception as exc:
+        logger.warning("Failed to append run history: %s", exc)
 
 
 # ---------------------------------------------------------------------------
@@ -320,7 +379,7 @@ Trion Agent Status
 # Core run logic
 # ---------------------------------------------------------------------------
 
-def run_checks(config: dict, os_type: str, dry_run: bool = False) -> None:
+def run_checks(config: dict[str, Any], os_type: str, dry_run: bool = False) -> None:
     """Orchestrate collect → diff → LLM → notify → update baseline for all enabled modules."""
     agent_cfg = config.get("agent", {})
     llm_cfg = dict(config.get("llm", {}))
@@ -329,6 +388,8 @@ def run_checks(config: dict, os_type: str, dry_run: bool = False) -> None:
 
     baseline_path = baseline_cfg.get("path", "data/baseline.json")
     snapshots_path = baseline_cfg.get("snapshots_path", "data/snapshots/")
+    verdicts_dir = baseline_cfg.get("verdicts_path", "data/verdicts/")
+    history_path = baseline_cfg.get("history_path", "data/run_history.jsonl")
     retention_days = int(baseline_cfg.get("retention_days", 30))
     modules_cfg = config.get("modules", {})
 
@@ -362,6 +423,7 @@ def run_checks(config: dict, os_type: str, dry_run: bool = False) -> None:
                 continue
 
             custom_commands = mod_settings.get("commands", [])
+            ignore_patterns = mod_settings.get("ignore_patterns", [])
             commands = mod.get_commands(os_type, custom_commands)
 
             logger.info("Collecting snapshot for module: %s", module_name)
@@ -382,7 +444,7 @@ def run_checks(config: dict, os_type: str, dry_run: bool = False) -> None:
                     baseline[module_name] = snapshot
                 continue
 
-            diffs = diff(baseline.get(module_name, {}), snapshot)
+            diffs = diff(baseline.get(module_name, {}), snapshot, ignore_patterns=ignore_patterns)
 
             if dry_run:
                 _print_dry_run(module_name, commands, snapshot, diffs)
@@ -411,9 +473,11 @@ def run_checks(config: dict, os_type: str, dry_run: bool = False) -> None:
                     )
                 else:
                     baseline[module_name] = snapshot
+                    save_verdict(verdicts_dir, module_name, verdict)
 
                 sent = notify(verdict, notif_cfg, module_name)
-                if sent:
+                webhook_sent = notify_webhook(verdict, notif_cfg, module_name)
+                if sent or webhook_sent:
                     run_meta["slack_sent"] = True
 
                 overall_verdict = _worst_verdict(overall_verdict, verdict.get("verdict", "BENIGN"))
@@ -432,6 +496,17 @@ def run_checks(config: dict, os_type: str, dry_run: bool = False) -> None:
         run_meta["verdict"] = overall_verdict
         if not dry_run:
             save_last_run(run_meta)
+            append_run_history(
+                history_path,
+                {
+                    "date": str(date.today()),
+                    "timestamp": run_meta["timestamp"],
+                    "verdict": overall_verdict,
+                    "diffs_found": run_meta["diffs_found"],
+                    "modules": run_meta["modules_run"],
+                    "error": run_meta.get("error"),
+                },
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -491,6 +566,11 @@ def main() -> None:
         default="config.toml",
         help="Path to config file (default: config.toml)",
     )
+    parser.add_argument(
+        "--reset-baseline",
+        action="store_true",
+        help="Delete the stored baseline and exit (next run rebuilds from scratch)",
+    )
     args = parser.parse_args()
 
     setup_logging(debug=args.debug)
@@ -500,10 +580,22 @@ def main() -> None:
     os.chdir(agent_dir)
 
     config = load_config(args.config)
+    validate_config(config)
+    setup_file_logging("data/agent.log")
     os_type = detect_os(config.get("agent", {}).get("os", "auto"))
 
     if args.status:
         show_status(config)
+        return
+
+    if args.reset_baseline:
+        baseline_path = config.get("baseline", {}).get("path", "data/baseline.json")
+        p = Path(baseline_path)
+        if p.exists():
+            p.unlink()
+            logger.info("Baseline deleted at %s — next run will build fresh.", baseline_path)
+        else:
+            logger.info("No baseline found at %s — nothing to reset.", baseline_path)
         return
 
     logger.info("OS detected: %s", os_type)

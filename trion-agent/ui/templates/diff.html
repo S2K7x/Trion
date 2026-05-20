@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Trion Agent — Diff {{ date_str }} / {{ module_name }}{% endblock %}
+{% block page_title %}Diff detail{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="/history" class="breadcrumb-link">History</a>
+  <span class="breadcrumb-sep">›</span>
+  <span>{{ date_str }}</span>
+  <span class="breadcrumb-sep">›</span>
+  <span class="breadcrumb-active">{{ module_name }}</span>
+</div>
+
+{% if verdict %}
+<div class="panel verdict-panel verdict-border-{{ verdict.verdict | verdict_color }}">
+  <div class="panel-header">LLM Analysis — {{ verdict.verdict }} ({{ verdict.confidence }}% confidence)</div>
+  <div class="panel-body">
+    <p class="verdict-summary">{{ verdict.summary }}</p>
+    {% if verdict.changes %}
+    <ul class="verdict-changes">
+      {% for c in verdict.changes %}
+      <li class="change-item verdict-{{ c.verdict | verdict_color }}">
+        <span class="change-verdict-badge">{{ c.verdict }}</span>
+        <strong>{{ c.item }}</strong> — {{ c.reason }}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+{% if not diff_rows %}
+<div class="panel">
+  <div class="panel-body">
+    <div class="empty-state inline">
+      <div class="empty-icon">✓</div>
+      <div class="empty-title">No changes detected</div>
+      <p class="empty-body">
+        Everything matched the previous snapshot from {{ prev_date }}.
+      </p>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="diff-meta">
+  <span class="diff-meta-label">Comparing against</span>
+  <span class="diff-meta-val">{{ prev_date }}</span>
+  <span class="diff-meta-label" style="margin-left:1.5rem">Commands changed</span>
+  <span class="diff-meta-val">{{ diff_rows | length }}</span>
+</div>
+
+{% for row in diff_rows %}
+<div class="panel diff-panel">
+  <div class="panel-header diff-cmd">
+    <span class="cmd-label">$</span> {{ row.command }}
+  </div>
+  <div class="diff-body">
+    {% for line in row.removed %}
+    <div class="diff-line diff-removed"><span class="diff-sign">−</span>{{ line }}</div>
+    {% endfor %}
+    {% for line in row.added %}
+    <div class="diff-line diff-added"><span class="diff-sign">+</span>{{ line }}</div>
+    {% endfor %}
+    {% if not row.removed and not row.added %}
+    <div class="diff-line diff-empty">(no textual changes)</div>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}

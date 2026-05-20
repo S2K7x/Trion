@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}Trion Agent — Settings{% endblock %}
+{% block page_title %}Settings{% endblock %}
+
+{% block content %}
+{% if saved %}
+<div class="alert alert-success">Settings saved successfully.</div>
+{% endif %}
+
+<form method="POST" action="/api/settings">
+
+  <!-- ── Schedule ──────────────────────────────────────────────── -->
+  <div class="panel settings-panel">
+    <div class="panel-header">Schedule</div>
+    <div class="panel-body settings-grid">
+
+      <div class="field-group">
+        <label class="field-label" for="schedule">Daily run time (24h)</label>
+        <input id="schedule" name="schedule" type="time" class="field-input" value="{{ schedule }}" />
+        <span class="field-hint">Agent runs once a day at this time (if using the built-in scheduler).</span>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="os_type">OS type</label>
+        <select id="os_type" name="os_type" class="field-input field-select">
+          <option value="auto" {% if os_type == 'auto' %}selected{% endif %}>Auto-detect</option>
+          <option value="linux" {% if os_type == 'linux' %}selected{% endif %}>Linux</option>
+          <option value="macos" {% if os_type == 'macos' %}selected{% endif %}>macOS</option>
+          <option value="windows" {% if os_type == 'windows' %}selected{% endif %}>Windows</option>
+        </select>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Modules ───────────────────────────────────────────────── -->
+  <div class="panel settings-panel">
+    <div class="panel-header">Modules</div>
+    <div class="panel-body settings-grid">
+
+      <div class="field-group toggle-group">
+        <div class="toggle-info">
+          <div class="field-label">Config Drift</div>
+          <span class="field-hint">Tracks open ports, services, users, cron jobs, sudoers.</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" name="config_drift_enabled" value="on" {% if config_drift_enabled %}checked{% endif %} />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="field-group full-width">
+        <label class="field-label" for="config_drift_ignore">Config Drift — Ignore patterns</label>
+        <textarea id="config_drift_ignore" name="config_drift_ignore" class="field-input field-textarea"
+                  placeholder="One regex per line, e.g.&#10;sshd\[\d+\]&#10;^\s*$">{{ config_drift_ignore }}</textarea>
+        <span class="field-hint">Lines matching any pattern are silently excluded from diffs. One regex per line.</span>
+      </div>
+
+      <div class="field-group toggle-group">
+        <div class="toggle-info">
+          <div class="field-label">Threat Detection</div>
+          <span class="field-hint">Tracks logins, failed auth, SUID files, SSH keys. Slightly slower.</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" name="threat_detection_enabled" value="on" {% if threat_detection_enabled %}checked{% endif %} />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="field-group full-width">
+        <label class="field-label" for="threat_detection_ignore">Threat Detection — Ignore patterns</label>
+        <textarea id="threat_detection_ignore" name="threat_detection_ignore" class="field-input field-textarea"
+                  placeholder="One regex per line">{{ threat_detection_ignore }}</textarea>
+        <span class="field-hint">Lines matching any pattern are silently excluded from diffs. One regex per line.</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── LLM ───────────────────────────────────────────────────── -->
+  <div class="panel settings-panel" x-data="{ provider: '{{ llm_provider }}' }">
+    <div class="panel-header">LLM Analysis</div>
+    <div class="panel-body settings-grid">
+
+      <div class="field-group">
+        <label class="field-label" for="llm_provider">Provider</label>
+        <select id="llm_provider" name="llm_provider" class="field-input field-select" x-model="provider">
+          <option value="ollama">Ollama (local, free)</option>
+          <option value="openai">OpenAI</option>
+          <option value="anthropic">Anthropic</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="llm_model">Model</label>
+        <input id="llm_model" name="llm_model" type="text" class="field-input" value="{{ llm_model }}"
+               placeholder="e.g. llama3.2 / gpt-4o-mini / claude-haiku-4-5" />
+      </div>
+
+      <div class="field-group" x-show="provider === 'ollama'">
+        <label class="field-label" for="llm_endpoint">Ollama endpoint</label>
+        <input id="llm_endpoint" name="llm_endpoint" type="text" class="field-input" value="{{ llm_endpoint }}"
+               placeholder="http://localhost:11434" />
+      </div>
+
+      <div class="field-group" x-show="provider !== 'ollama'">
+        <label class="field-label" for="llm_api_key">API key</label>
+        <input id="llm_api_key" name="llm_api_key" type="password" class="field-input" value="{{ llm_api_key }}"
+               placeholder="sk-…" autocomplete="off" />
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="llm_timeout">Timeout (seconds)</label>
+        <input id="llm_timeout" name="llm_timeout" type="number" class="field-input narrow" value="{{ llm_timeout }}" min="5" max="120" />
+        <span class="field-hint">If the LLM takes longer than this, the run falls back to SUSPECT.</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Notifications ─────────────────────────────────────────── -->
+  <div class="panel settings-panel">
+    <div class="panel-header">Notifications</div>
+    <div class="panel-body settings-grid">
+
+      <div class="field-group full-width">
+        <label class="field-label" for="slack_webhook">Slack Webhook URL</label>
+        <input id="slack_webhook" name="slack_webhook" type="text" class="field-input" value="{{ slack_webhook }}"
+               placeholder="https://hooks.slack.com/services/…" />
+        <span class="field-hint">Leave blank to disable Slack alerts.</span>
+      </div>
+
+      <div class="field-group full-width">
+        <label class="field-label" for="webhook_url">Generic Webhook URL</label>
+        <input id="webhook_url" name="webhook_url" type="text" class="field-input" value="{{ webhook_url }}"
+               placeholder="https://discord.com/api/webhooks/… or https://hooks.pagerduty.com/…" />
+        <span class="field-hint">Posts a JSON payload to any HTTP endpoint (Discord, Teams, PagerDuty…). Leave blank to disable.</span>
+      </div>
+
+      <div class="field-group">
+        <div class="field-label">Notify on</div>
+        <div class="checkbox-group">
+          <label class="checkbox-label">
+            <input type="checkbox" name="notify_on_suspect" value="on" {% if notify_on_suspect %}checked{% endif %} />
+            <span>SUSPECT</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" name="notify_on_critical" value="on" {% if notify_on_critical %}checked{% endif %} />
+            <span>CRITICAL</span>
+          </label>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Baseline ──────────────────────────────────────────────── -->
+  <div class="panel settings-panel">
+    <div class="panel-header">Baseline & Snapshots</div>
+    <div class="panel-body settings-grid">
+
+      <div class="field-group">
+        <label class="field-label" for="retention_days">Snapshot retention (days)</label>
+        <input id="retention_days" name="retention_days" type="number" class="field-input narrow"
+               value="{{ retention_days }}" min="1" max="365" />
+        <span class="field-hint">Snapshots older than this are automatically deleted.</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Save ──────────────────────────────────────────────────── -->
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Save settings</button>
+  </div>
+
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+{% endblock %}

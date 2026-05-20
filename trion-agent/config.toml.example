@@ -37,7 +37,11 @@ timeout = 30
 # Create one at: https://api.slack.com/messaging/webhooks
 slack_webhook = "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
 
-# Which verdicts trigger a Slack message. BENIGN is always silent.
+# Generic HTTP webhook — posts JSON payload to Discord, Teams, PagerDuty, etc.
+# Leave empty to disable.
+webhook_url = ""
+
+# Which verdicts trigger a notification. BENIGN is always silent.
 notify_on = ["SUSPECT", "CRITICAL"]
 
 # ── Baseline ───────────────────────────────────────────────────────────────────
@@ -59,10 +63,25 @@ enabled = true
 # Override the built-in command list. Empty = use built-in defaults.
 # Commands with ; & | ` $ ( ) { } > < newline are rejected for safety.
 commands = []
+# Regex patterns — lines matching any pattern are silently ignored in diffs.
+# Useful for suppressing known-good noise (rotating PIDs, timestamp churn, etc.)
+# Example: ignore_patterns = ["sshd\\[\\d+\\]", "^\\s*$"]
+ignore_patterns = []
 
 [modules.threat-detection]
 # Tracks login history, failed auth, SUID files, suspicious processes.
-# Disabled by default — enable only if you accept the performance cost of
-# a full filesystem SUID scan (find /).
+# Disabled by default — enable only if you want SUID/process monitoring.
 enabled = false
 commands = []
+ignore_patterns = []
+
+# ── Web dashboard ──────────────────────────────────────────────────────────────
+[ui]
+# Port the dashboard listens on.
+port = 8080
+
+# Single password to access the dashboard.
+password = "changeme"
+
+# Random secret for JWT signing — change this to a long random string (32+ chars).
+secret = "change-this-to-a-long-random-string-at-least-32-chars"

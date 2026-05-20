@@ -1,0 +1,9 @@
+services:
+  dashboard:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data        # agent writes here natively, dashboard reads it
+      - ./config.toml:/app/config.toml
+    restart: unless-stopped

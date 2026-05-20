@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+tests/
+*.service
+*.timer
+*.plist
+install.sh
+install.ps1
+docs/
+data/
+.git/

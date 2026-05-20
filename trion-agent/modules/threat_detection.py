@@ -5,14 +5,16 @@ COMMANDS = {
         "last -n 20",
         "grep 'Failed password' /var/log/auth.log | tail -30",
         "ps aux --sort=-%cpu | head -20",
-        "find / -perm -4000 -type f 2>/dev/null",
+        # Scoped to common system dirs — avoids 30s timeout from full-tree find /
+        "find /usr /bin /sbin /opt /home -perm -4000 -type f 2>/dev/null",
         "ls -la ~/.ssh/",
     ],
     "macos": [
         "last -n 20",
         "log show --predicate 'eventMessage contains \"Failed\"' --last 1d | tail -30",
         "ps aux | sort -rk 3 | head -20",
-        "find / -perm -4000 -type f 2>/dev/null",
+        # Scoped to common system dirs — avoids 30s timeout from full-tree find /
+        "find /usr /bin /sbin /opt /Users -perm -4000 -type f 2>/dev/null",
         "ls -la ~/.ssh/",
     ],
     "windows": [

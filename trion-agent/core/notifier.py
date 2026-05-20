@@ -3,13 +3,14 @@ import logging
 import socket
 import time
 from datetime import date
+from typing import Any
 
 import requests
 
 logger = logging.getLogger(__name__)
 
 
-def _get_webhook(config: dict) -> str | None:
+def _get_webhook(config: dict[str, Any]) -> str | None:
     """Return the webhook URL if configured, None otherwise."""
     webhook = config.get("slack_webhook", "")
     if not webhook or webhook.startswith("https://hooks.slack.com/services/YOUR"):
@@ -17,7 +18,7 @@ def _get_webhook(config: dict) -> str | None:
     return webhook
 
 
-def notify(verdict_json: dict, config: dict, module_name: str) -> bool:
+def notify(verdict_json: dict[str, Any], config: dict[str, Any], module_name: str) -> bool:
     """Post a Slack message if the verdict warrants a notification.
 
     Returns True if a message was sent.
@@ -84,7 +85,47 @@ def notify(verdict_json: dict, config: dict, module_name: str) -> bool:
     return False
 
 
-def notify_agent_error(config: dict, hostname: str, timestamp: str) -> None:
+def notify_webhook(
+    verdict_json: dict[str, Any],
+    config: dict[str, Any],
+    module_name: str,
+) -> bool:
+    """POST a structured JSON payload to a generic webhook URL.
+
+    Compatible with Discord (via Execute Webhook), Teams, PagerDuty, or any
+    service that accepts JSON. Returns True if the request succeeded.
+    """
+    url = config.get("webhook_url", "").strip()
+    if not url:
+        return False
+    verdict = verdict_json.get("verdict", "BENIGN")
+    llm_error = verdict_json.get("llm_error", False)
+    notify_on = config.get("notify_on", ["SUSPECT", "CRITICAL"])
+    if verdict == "BENIGN" and not llm_error:
+        return False
+    if not llm_error and verdict not in notify_on:
+        return False
+    payload = {
+        "verdict": verdict,
+        "confidence": verdict_json.get("confidence", 0),
+        "module": module_name,
+        "host": socket.gethostname(),
+        "date": str(date.today()),
+        "summary": verdict_json.get("summary", ""),
+        "changes": verdict_json.get("changes", []),
+        "llm_error": llm_error,
+    }
+    try:
+        resp = requests.post(url, json=payload, timeout=10)
+        resp.raise_for_status()
+        logger.info("Generic webhook notification sent (%s)", verdict)
+        return True
+    except requests.RequestException as exc:
+        logger.error("Generic webhook notification failed: %s", exc)
+        return False
+
+
+def notify_agent_error(config: dict[str, Any], hostname: str, timestamp: str) -> None:
     """Send a Slack error notification when a run fails unexpectedly."""
     webhook = _get_webhook(config)
     if not webhook:
@@ -94,8 +135,13 @@ def notify_agent_error(config: dict, hostname: str, timestamp: str) -> None:
         f"Run failed at {timestamp}.\n"
         f"Baseline not updated. Check agent logs."
     )
-    try:
-        resp = requests.post(webhook, json={"text": text}, timeout=10)
-        resp.raise_for_status()
-    except requests.RequestException as exc:
-        logger.error("Failed to send agent error to Slack: %s", exc)
+    for attempt in range(3):
+        try:
+            resp = requests.post(webhook, json={"text": text}, timeout=10)
+            resp.raise_for_status()
+            logger.info("Agent error notification sent to Slack")
+            return
+        except requests.RequestException as exc:
+            logger.error("Failed to send agent error to Slack (attempt %d/3): %s", attempt + 1, exc)
+            if attempt < 2:
+                time.sleep(2 ** attempt)

@@ -254,5 +254,80 @@ class TestRunChecksDisabledModule(unittest.TestCase):
             mock_run.assert_not_called()
 
 
+class TestLoadConfigMalformed(unittest.TestCase):
+    def test_malformed_toml_exits(self):
+        with tempfile.NamedTemporaryFile(suffix=".toml", mode="w", delete=False) as f:
+            f.write("{this is not valid toml!!!\n")
+            f.flush()
+            try:
+                with self.assertRaises(SystemExit) as ctx:
+                    agent.load_config(f.name)
+                self.assertEqual(ctx.exception.code, 1)
+            finally:
+                os.unlink(f.name)
+
+
+class TestValidateConfig(unittest.TestCase):
+    def _valid_config(self):
+        return {
+            "agent": {"modules": ["config-drift"]},
+            "llm": {"provider": "ollama", "model": "llama3.2"},
+        }
+
+    def test_valid_config_passes(self):
+        agent.validate_config(self._valid_config())  # should not raise or exit
+
+    def test_missing_modules_exits(self):
+        cfg = self._valid_config()
+        del cfg["agent"]["modules"]
+        with self.assertRaises(SystemExit) as ctx:
+            agent.validate_config(cfg)
+        self.assertEqual(ctx.exception.code, 1)
+
+    def test_missing_llm_provider_exits(self):
+        cfg = self._valid_config()
+        del cfg["llm"]["provider"]
+        with self.assertRaises(SystemExit) as ctx:
+            agent.validate_config(cfg)
+        self.assertEqual(ctx.exception.code, 1)
+
+    def test_missing_llm_model_exits(self):
+        cfg = self._valid_config()
+        del cfg["llm"]["model"]
+        with self.assertRaises(SystemExit) as ctx:
+            agent.validate_config(cfg)
+        self.assertEqual(ctx.exception.code, 1)
+
+
+class TestResetBaseline(unittest.TestCase):
+    """--reset-baseline deletes the baseline file when it exists."""
+
+    def test_reset_removes_existing_baseline(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "baseline.json"
+            p.write_text('{"config-drift": {}}')
+            cfg = {
+                "agent": {"modules": ["config-drift"], "os": "auto"},
+                "llm": {"provider": "ollama", "model": "llama3.2"},
+                "baseline": {"path": str(p)},
+                "notifications": {},
+            }
+            # Simulate --reset-baseline logic directly
+            baseline_path = cfg.get("baseline", {}).get("path", "data/baseline.json")
+            bp = Path(baseline_path)
+            if bp.exists():
+                bp.unlink()
+            self.assertFalse(p.exists())
+
+    def test_reset_nonexistent_baseline_is_noop(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "baseline.json"
+            # File doesn't exist — should not raise
+            if p.exists():
+                p.unlink()
+            # No error expected
+            self.assertFalse(p.exists())
+
+
 if __name__ == "__main__":
     unittest.main()

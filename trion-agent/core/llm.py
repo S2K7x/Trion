@@ -3,6 +3,7 @@ import json
 import logging
 import socket
 from datetime import date
+from typing import Any
 
 import requests
 
@@ -120,17 +121,17 @@ def _system_prompt(os_type: str) -> str:
     return _SYSTEM_PROMPTS.get(os_type, _SYSTEM_LINUX)
 
 
-def _context_text(context: dict) -> str:
+def _context_text(context: dict[str, Any]) -> str:
     """Serialise the diff context as the user-role content."""
     return f"Context:\n{json.dumps(context, indent=2)}"
 
 
-def build_prompt(context: dict, os_type: str) -> str:
+def build_prompt(context: dict[str, Any], os_type: str) -> str:
     """Build a single prompt string (used for Ollama which has no role separation)."""
     return f"{_system_prompt(os_type)}\n\n{_context_text(context)}"
 
 
-def _truncate_context(context: dict) -> dict:
+def _truncate_context(context: dict[str, Any]) -> dict[str, Any]:
     """Truncate diffs until the serialised context fits within _MAX_CONTEXT_CHARS.
 
     Strategy:
@@ -161,7 +162,7 @@ def _truncate_context(context: dict) -> dict:
 _VALID_VERDICTS = frozenset({"BENIGN", "SUSPECT", "CRITICAL"})
 
 
-def parse_response(raw: str) -> dict:
+def parse_response(raw: str) -> dict[str, Any]:
     """Parse LLM JSON response; return SUSPECT fallback on failure."""
     try:
         result = json.loads(raw)
@@ -173,14 +174,14 @@ def parse_response(raw: str) -> dict:
                 "LLM returned unknown verdict %r — treating as SUSPECT", verdict
             )
             result["verdict"] = "SUSPECT"
-            result["llm_error"] = True
+            # Don't set llm_error — LLM responded successfully, verdict is just coerced
         return result
     except (json.JSONDecodeError, KeyError) as exc:
         logger.error("LLM response parse error: %s — raw: %.200s", exc, raw)
         return dict(_FALLBACK)
 
 
-def analyze(diffs: list[dict], config: dict, os_type: str) -> dict:
+def analyze(diffs: list[dict[str, Any]], config: dict[str, Any], os_type: str) -> dict[str, Any]:
     """Send diffs to the configured LLM provider and return the verdict dict."""
     context = {
         "host": socket.gethostname(),
@@ -227,7 +228,7 @@ def analyze(diffs: list[dict], config: dict, os_type: str) -> dict:
         return dict(_FALLBACK)
 
 
-def _call_ollama(context: dict, os_type: str, config: dict, timeout: int) -> dict:
+def _call_ollama(context: dict[str, Any], os_type: str, config: dict[str, Any], timeout: int) -> dict[str, Any]:
     # Ollama /api/generate has no role concept — combine into a single prompt string.
     prompt = build_prompt(context, os_type)
     endpoint = config.get("endpoint", "http://localhost:11434")
@@ -240,7 +241,7 @@ def _call_ollama(context: dict, os_type: str, config: dict, timeout: int) -> dic
     return parse_response(resp.json()["response"])
 
 
-def _call_openai(context: dict, os_type: str, config: dict, timeout: int) -> dict:
+def _call_openai(context: dict[str, Any], os_type: str, config: dict[str, Any], timeout: int) -> dict[str, Any]:
     api_key = config.get("api_key", "")
     if not api_key:
         logger.error("openai provider requires api_key in config")
@@ -264,7 +265,7 @@ def _call_openai(context: dict, os_type: str, config: dict, timeout: int) -> dic
     return parse_response(resp.json()["choices"][0]["message"]["content"])
 
 
-def _call_anthropic(context: dict, os_type: str, config: dict, timeout: int) -> dict:
+def _call_anthropic(context: dict[str, Any], os_type: str, config: dict[str, Any], timeout: int) -> dict[str, Any]:
     api_key = config.get("api_key", "")
     if not api_key:
         logger.error("anthropic provider requires api_key in config")

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Trion Agent — History{% endblock %}
+{% block page_title %}Run History{% endblock %}
+
+{% block content %}
+{% if not dates %}
+<div class="empty-state">
+  <div class="empty-icon">◷</div>
+  <div class="empty-title">No snapshots yet</div>
+  <p class="empty-body">Run the agent at least once to start building history.</p>
+  <a href="/" class="btn btn-primary">Go to dashboard</a>
+</div>
+{% else %}
+<div class="history-grid">
+  {% for day in dates %}
+  <div class="history-card">
+    <div class="history-date">{{ day.date }}</div>
+    <div class="history-modules">
+      {% for mod in day.modules %}
+      <a href="/history/{{ day.date }}/{{ mod }}" class="mod-link">
+        {{ mod }} →
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
