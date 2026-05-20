@@ -22,6 +22,14 @@ class TestValidateCommand(unittest.TestCase):
         self.assertFalse(validate_command("echo $(whoami)"))
         self.assertFalse(validate_command("cmd1 && cmd2"))
         self.assertFalse(validate_command("cmd `id`"))
+        # Redirection operators — added after audit
+        self.assertFalse(validate_command("cat /etc/passwd > /tmp/exfil"))
+        self.assertFalse(validate_command("cat /dev/null < /etc/passwd"))
+        # Newline injection (TOML \n escape → real newline in Python string)
+        self.assertFalse(validate_command("ls -la\nrm -rf /"))
+        self.assertFalse(validate_command("ls -la\rrm -rf /"))
+        # History expansion
+        self.assertFalse(validate_command("ls -la !$"))
 
 
 class TestCollect(unittest.TestCase):

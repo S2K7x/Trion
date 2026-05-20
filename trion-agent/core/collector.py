@@ -4,8 +4,13 @@ import subprocess
 
 logger = logging.getLogger(__name__)
 
-# Shell metacharacters that are dangerous in custom (user-provided) commands
-_DANGEROUS_CHARS = frozenset({";", "&", "|", "`", "$", "(", ")", "{", "}"})
+# Shell metacharacters that are dangerous in custom (user-provided) commands.
+# Includes redirection operators and whitespace injection vectors.
+_DANGEROUS_CHARS = frozenset({
+    ";", "&", "|", "`", "$", "(", ")", "{", "}",
+    ">", "<", "!",          # redirection / history expansion
+    "\n", "\r",             # newline injection (TOML parses \n in strings)
+})
 
 
 def validate_command(cmd: str) -> bool:

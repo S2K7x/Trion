@@ -1,0 +1,18 @@
+# User config — contains API keys and webhook URLs, never commit
+config.toml
+
+# Runtime data
+data/*.json
+data/snapshots/
+data/*.log
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
