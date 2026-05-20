@@ -89,9 +89,7 @@ export async function getDashboardStats(): Promise<StatsResponse> {
 
     supabase
       .from('alert_queue')
-      .select(
-        'id, created_at, rule_id, rule_desc, rule_level, agent_name, agent_ip, username, command, iocs, raw_alert, status, retry_count, processed_at'
-      )
+      .select(ALERT_SELECT)
       .order('created_at', { ascending: false })
       .limit(50),
 
@@ -140,7 +138,7 @@ export async function getDashboardStats(): Promise<StatsResponse> {
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 const ALERT_SELECT =
-  'id, created_at, rule_id, rule_desc, rule_level, agent_name, agent_ip, username, command, iocs, raw_alert, status, retry_count, processed_at'
+  'id, created_at, rule_id, rule_desc, rule_level, agent_name, agent_ip, username, command, iocs, raw_alert, status, retry_count, processed_at, llm_verdict'
 
 function rangeToDate(range?: string): string {
   const ms =
@@ -253,6 +251,37 @@ export async function searchReputation(indicator: string): Promise<{
     }
   }
   return { matches, verdict, ioc_type }
+}
+
+export async function getAlertById(id: string): Promise<AlertRecord | null> {
+  const supabase = createServerSupabase()
+  const { data, error } = await supabase
+    .from('alert_queue')
+    .select(ALERT_SELECT)
+    .eq('id', id)
+    .single()
+  if (error) {
+    console.error('[queries:alert-by-id]', error.message)
+    return null
+  }
+  return data as AlertRecord | null
+}
+
+export async function getSimilarAlerts(ruleId: string, excludeId: string): Promise<AlertRecord[]> {
+  if (!ruleId) return []
+  const supabase = createServerSupabase()
+  const { data, error } = await supabase
+    .from('alert_queue')
+    .select(ALERT_SELECT)
+    .eq('rule_id', ruleId)
+    .neq('id', excludeId)
+    .order('created_at', { ascending: false })
+    .limit(3)
+  if (error) {
+    console.error('[queries:similar-alerts]', error.message)
+    return []
+  }
+  return (data as AlertRecord[] | null) ?? []
 }
 
 export async function getQueueDepth(): Promise<number> {

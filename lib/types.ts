@@ -1,5 +1,16 @@
 export type AlertStatus = 'pending' | 'done' | 'error' | 'processing'
 
+export interface LlmVerdict {
+  severity: 'critical' | 'high' | 'medium' | 'low'
+  verdict: 'malicious' | 'suspect' | 'benign'
+  reason: string
+  plain_english_summary: string
+  damage_explanation: string
+  suggested_action: string
+  confidence: 'high' | 'medium' | 'low'
+  llm_error?: boolean
+}
+
 export interface Ioc {
   value: string
   type: string
@@ -21,6 +32,7 @@ export interface AlertRecord {
   status: AlertStatus
   retry_count: number
   processed_at: string | null
+  llm_verdict?: LlmVerdict | null
 }
 
 export interface TrendPoint {
