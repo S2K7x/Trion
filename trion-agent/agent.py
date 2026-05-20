@@ -9,6 +9,7 @@ import platform
 import socket
 import stat
 import sys
+import time
 import traceback
 import types
 from datetime import date, datetime, timedelta
@@ -24,11 +25,10 @@ except ImportError:
         sys.exit(1)
 
 import schedule
-import time
 
+from core import llm as llm_module
 from core.collector import collect
 from core.differ import diff
-from core import llm as llm_module
 from core.notifier import notify, notify_agent_error
 
 _MODULE_MAP = {

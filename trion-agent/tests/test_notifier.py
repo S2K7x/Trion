@@ -1,8 +1,8 @@
 """Unit tests for core/notifier.py."""
-import sys
 import os
+import sys
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import requests
 
