@@ -1,0 +1,28 @@
+[agent]
+modules = ["config-drift"]
+schedule = "07:00"
+os = "auto"
+
+[llm]
+provider = "ollama"
+model = "llama3.2"
+endpoint = "http://localhost:11434"
+api_key = ""
+timeout = 30
+
+[notifications]
+slack_webhook = "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+notify_on = ["SUSPECT", "CRITICAL"]
+
+[baseline]
+path = "data/baseline.json"
+snapshots_path = "data/snapshots/"
+retention_days = 30
+
+[modules.config-drift]
+enabled = true
+commands = []
+
+[modules.threat-detection]
+enabled = false
+commands = []
