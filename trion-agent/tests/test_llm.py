@@ -1,15 +1,15 @@
 """Unit tests for core/llm.py."""
 import json
-import sys
 import os
+import sys
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import requests
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from core.llm import analyze, build_prompt, _MAX_CONTEXT_CHARS
+from core.llm import analyze, build_prompt
 
 _OLLAMA_CONFIG = {
     "provider": "ollama",
