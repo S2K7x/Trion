@@ -1,4 +1,4 @@
--- mini-soc — schéma complet
+-- Trion SOC — schéma initial
 -- Appliquer via : supabase db push  OU  coller dans Supabase SQL Editor
 
 -- ── Table principale ────────────────────────────────────────────────────────
