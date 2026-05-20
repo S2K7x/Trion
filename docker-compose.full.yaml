@@ -11,7 +11,7 @@ services:
 
   dashboard:
     build: .
-    container_name: mini-soc-dashboard
+    container_name: trion-dashboard
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -20,8 +20,8 @@ services:
       - n8n
 
   n8n:
-    image: docker.n8n.io/n8nio/n8n:latest
-    container_name: n8n
+    image: docker.n8n.io/n8nio/n8n:1.93.0
+    container_name: trion-n8n
     restart: unless-stopped
     ports:
       - "5678:5678"
@@ -37,7 +37,7 @@ services:
       - N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES=false
       - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
       - NODE_FUNCTION_ALLOW_EXTERNAL=*
-      - NODE_FUNCTION_ALLOW_BUILTIN=*
+      - NODE_FUNCTION_ALLOW_BUILTIN=crypto,path,url,util,os,querystring,stream,buffer,events,assert,zlib,https,http
       - N8N_DIAGNOSTICS_ENABLED=false
     volumes:
       - ./n8n_data:/home/node/.n8n

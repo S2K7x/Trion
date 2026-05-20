@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # ╔══════════════════════════════════════════════════════════════════╗
-# ║                  mini-soc — fast installer                      ║
+# ║                  Trion — fast installer                         ║
 # ║  Usage : ./install.sh                                           ║
 # ║  Options: --mode dev | prod | docker | full | wazuh             ║
 # ║           --env <file>   chemin vers un .env existant           ║
 # ║           --skip-db      ne pas appliquer le schéma SQL         ║
-# ║  CI/env vars: MINI_SOC_MODE, MINI_SOC_ENV_FILE                  ║
+# ║  CI/env vars: TRION_MODE, TRION_ENV_FILE                        ║
 # ╚══════════════════════════════════════════════════════════════════╝
 set -euo pipefail
 IFS=$'\n\t'
@@ -264,8 +264,8 @@ print_summary() {
 #  SECTION 2 — Lecture des arguments et état global
 # ════════════════════════════════════════════════════════════════════════════
 
-MODE="${MINI_SOC_MODE:-}"
-ENV_FILE="${MINI_SOC_ENV_FILE:-.env.local}"
+MODE="${TRION_MODE:-}"
+ENV_FILE="${TRION_ENV_FILE:-.env.local}"
 SKIP_DB=false
 COMPOSE_CMD=""
 
@@ -288,14 +288,14 @@ INTERACTIVE=false
 #  BANNIÈRE
 # ════════════════════════════════════════════════════════════════════════════
 echo -e "${BOLD}"
-echo "  ███╗   ███╗██╗███╗   ██╗██╗    ███████╗ ██████╗  ██████╗"
-echo "  ████╗ ████║██║████╗  ██║██║    ██╔════╝██╔═══██╗██╔════╝"
-echo "  ██╔████╔██║██║██╔██╗ ██║██║    ███████╗██║   ██║██║"
-echo "  ██║╚██╔╝██║██║██║╚██╗██║██║    ╚════██║██║   ██║██║"
-echo "  ██║ ╚═╝ ██║██║██║ ╚████║██║    ███████║╚██████╔╝╚██████╗"
-echo "  ╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝╚═╝    ╚══════╝ ╚═════╝  ╚═════╝"
+echo "  ████████╗██████╗ ██╗ ██████╗ ███╗   ██╗"
+echo "  ╚══██╔══╝██╔══██╗██║██╔═══██╗████╗  ██║"
+echo "     ██║   ██████╔╝██║██║   ██║██╔██╗ ██║"
+echo "     ██║   ██╔══██╗██║██║   ██║██║╚██╗██║"
+echo "     ██║   ██║  ██║██║╚██████╔╝██║ ╚████║"
+echo "     ╚═╝   ╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝"
 echo -e "${RESET}"
-echo -e "  ${CYAN}Security Operations Center — fast installer${RESET}"
+echo -e "  ${CYAN}Trion SOC — fast installer${RESET}"
 [[ "$INTERACTIVE" == false ]] && echo -e "  ${YELLOW}Mode non-interactif détecté (CI/pipe)${RESET}"
 echo ""
 
@@ -343,7 +343,7 @@ step "2/5" "Mode de lancement"
 
 if [[ -z "$MODE" ]]; then
   if [[ "$INTERACTIVE" == false ]]; then
-    die "Mode requis en non-interactif. Utiliser --mode dev|prod|docker|full|wazuh ou MINI_SOC_MODE=..."
+    die "Mode requis en non-interactif. Utiliser --mode dev|prod|docker|full|wazuh ou TRION_MODE=..."
   fi
   echo ""
   echo "  Modes disponibles :"
@@ -444,12 +444,14 @@ ok "${ENV_FILE} configuré"
 # ════════════════════════════════════════════════════════════════════════════
 step "4/5" "Schéma Supabase"
 
-SQL_FILE="supabase/migrations/001_init.sql"
+SQL_FILES=(
+  "supabase/migrations/001_init.sql"
+  "supabase/migrations/002_trion_config.sql"
+  "supabase/migrations/003_rls_and_schema.sql"
+)
 
 if [[ "$SKIP_DB" == true ]]; then
   warn "Ignoré (--skip-db)"
-elif [[ ! -f "$SQL_FILE" ]]; then
-  warn "${SQL_FILE} introuvable — vérifier que le repo est complet"
 elif [[ "$HAS_SUPABASE" == true ]]; then
   info "supabase CLI détectée — tentative d'application des migrations"
   set +e
@@ -461,10 +463,16 @@ elif [[ "$HAS_SUPABASE" == true ]]; then
   else
     warn "supabase db push a échoué (projet peut-être non lié)."
     echo -e "  ${DIM}$(echo "$supabase_out" | head -3)${RESET}"
-    show_sql_instructions "$SQL_FILE"
+    warn "Appliquer les migrations manuellement dans Supabase SQL Editor :"
+    for f in "${SQL_FILES[@]}"; do
+      [[ -f "$f" ]] && show_sql_instructions "$f" || warn "${f} introuvable"
+    done
   fi
 else
-  show_sql_instructions "$SQL_FILE"
+  warn "Appliquer les 3 migrations dans l'ordre dans Supabase SQL Editor :"
+  for f in "${SQL_FILES[@]}"; do
+    [[ -f "$f" ]] && show_sql_instructions "$f" || warn "${f} introuvable"
+  done
 fi
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -510,18 +518,18 @@ case "$MODE" in
   docker)
     check_ports 3000 5678
     info "Build de l'image Docker (2-3 min au premier build)..."
-    docker build -t mini-soc . \
+    docker build -t trion . \
       || die "docker build a échoué. Vérifier le Dockerfile et les erreurs ci-dessus."
-    ok "Image mini-soc construite"
-    docker rm -f mini-soc-dashboard &>/dev/null || true
+    ok "Image trion construite"
+    docker rm -f trion-dashboard &>/dev/null || true
     info "Démarrage du container dashboard..."
     docker run -d \
-      --name mini-soc-dashboard \
+      --name trion-dashboard \
       --env-file "$ENV_FILE" \
       --restart unless-stopped \
       -p 3000:3000 \
-      mini-soc \
-      || die "docker run a échoué. Logs : docker logs mini-soc-dashboard"
+      trion \
+      || die "docker run a échoué. Logs : docker logs trion-dashboard"
     ok "Dashboard démarré"
     info "Démarrage de n8n..."
     $COMPOSE_CMD up -d \

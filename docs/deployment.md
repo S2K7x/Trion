@@ -7,6 +7,8 @@
 - A Supabase project (free tier works)
 - At least 1 GB RAM — Raspberry Pi 5 or any equivalent
 
+> **`MASTER_SECRET`** — generate with `openssl rand -hex 32`. This 64-character hex string (32 bytes) is the AES-256-GCM key used to encrypt all API keys stored in Supabase. Rotate it by re-encrypting config values via the Settings page after updating the env var.
+
 ---
 
 ## Quick start
@@ -86,7 +88,8 @@ cp .env.example .env.local
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key (public) |
 | `SUPABASE_SERVICE_KEY` | Supabase service_role key — **server-side only, never expose to client** |
 | `DASHBOARD_PASSWORD` | Dashboard login password |
-| `DASHBOARD_SECRET` | JWT signing secret — min 32 chars (`openssl rand -hex 32`) |
+| `DASHBOARD_SECRET` | JWT signing secret — 64 hex chars / 32 bytes (`openssl rand -hex 32`) |
+| `MASTER_SECRET` | AES-256-GCM key for config encryption — 64 hex chars (`openssl rand -hex 32`) |
 | `N8N_API_URL` | n8n instance URL (`http://localhost:5678`) |
 | `N8N_API_KEY` | n8n API key (Settings → API in n8n UI) |
 
@@ -98,9 +101,29 @@ cp .env.example .env.local
 
 ## Supabase schema
 
-Run [`supabase/migrations/001_init.sql`](../supabase/migrations/001_init.sql) once in the Supabase SQL Editor. It creates the `alert_queue` table and the four RPC functions used by the dashboard.
+Run the three migration files **in order** in the Supabase SQL Editor (or let `install.sh` apply them automatically if the Supabase CLI is installed and the project is linked via `supabase db push`):
 
-If the Supabase CLI is installed and the project is linked, `install.sh` applies the migration automatically via `supabase db push`.
+| File | What it creates |
+|------|----------------|
+| [`001_init.sql`](../supabase/migrations/001_init.sql) | `alert_queue` table + 4 RPC functions + indexes |
+| [`002_trion_config.sql`](../supabase/migrations/002_trion_config.sql) | `trion_config` table + seed rows |
+| [`003_rls_and_schema.sql`](../supabase/migrations/003_rls_and_schema.sql) | `llm_verdict` column + RLS (deny anon write access) |
+
+All migrations are idempotent — safe to run twice.
+
+---
+
+## First-launch setup wizard
+
+On the first visit after deployment, Trion redirects to `/setup` — a 3-step wizard that:
+
+1. **Database** — enter your Supabase URL and service_role key, then click "Test Connection" to verify.
+2. **Integrations** — enter your Slack webhook URL (required) and optional threat intel API keys (VirusTotal, AbuseIPDB, MalwareBazaar).
+3. **LLM** — choose Ollama (local), OpenAI, or Anthropic for AI-assisted triage. This step can be skipped.
+
+All sensitive values (API keys, webhook URLs) are encrypted with AES-256-GCM before being stored in Supabase. The wizard can only be completed once — subsequent visits go directly to the dashboard.
+
+To update settings after setup, use the **Settings** page (`/settings`) in the dashboard.
 
 ---
 
@@ -108,7 +131,7 @@ If the Supabase CLI is installed and the project is linked, `install.sh` applies
 
 1. Push to GitHub
 2. Import on [vercel.com](https://vercel.com) — Next.js is auto-detected
-3. Add the 7 environment variables in Project Settings → Environment Variables
+3. Add the environment variables in Project Settings → Environment Variables (see table above)
 4. Deploy
 
 `vercel.json` is already configured. No custom build command required.

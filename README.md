@@ -35,17 +35,31 @@ Trion is two independent tools that can be used together or separately. The SOC 
 
 ## Trion SOC — Quick overview
 
+> *Triage at the speed of threat.*
+
 Trion SOC connects Wazuh agents to a live Next.js dashboard through an automated n8n pipeline. Security events flow from Wazuh endpoints through three n8n workflows (`soc-ingest`, `soc-triage`, `soc-error-handler`) into a Supabase database, where the dashboard polls them every 30 seconds. IOCs are automatically enriched against VirusTotal, AbuseIPDB, and MalwareBazaar before being posted to Slack. A live demo is available at [mini-soc.vercel.app](https://mini-soc.vercel.app) — login: `demo` / `demo1234`.
 
 ---
 
 ## trion-agent — Quick overview
 
+> *Silent. Daily. Precise.*
+
 trion-agent takes daily snapshots of critical system state (ports, services, users, cron, autoruns), diffs them against the previous day, and sends the delta to a LLM for classification (BENIGN / SUSPECT / CRITICAL). Only actionable findings trigger a Slack alert — BENIGN runs are completely silent. See [trion-agent/README.md](trion-agent/README.md) for full setup instructions.
 
 ---
 
 ## Installation
+
+**Prerequisites — Trion SOC**
+- Node.js 18+ and npm
+- Docker with Compose plugin v2
+- A [Supabase](https://supabase.com) project (free tier works)
+
+**Prerequisites — trion-agent**
+- Python 3.11+
+- A Slack Incoming Webhook URL
+- A LLM provider: Ollama (local, free) or OpenAI / Anthropic API key
 
 **Trion SOC**
 

@@ -7,3 +7,7 @@ CREATE TABLE IF NOT EXISTS trion_config (
 INSERT INTO trion_config (key, value)
 VALUES ('setup_complete', 'false')
 ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO trion_config (key, value)
+VALUES ('app_url', '')
+ON CONFLICT (key) DO NOTHING;
