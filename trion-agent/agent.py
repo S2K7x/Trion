@@ -14,12 +14,13 @@ import traceback
 import types
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 try:
     import tomllib
 except ImportError:
     try:
-        import tomli as tomllib  # type: ignore[no-reattr]
+        import tomli as tomllib  # type: ignore[no-reattr,no-redef]
     except ImportError:
         print("ERROR: tomli not found. Run: pip install tomli", file=sys.stderr)
         sys.exit(1)
@@ -331,7 +332,7 @@ def run_checks(config: dict, os_type: str, dry_run: bool = False) -> None:
     retention_days = int(baseline_cfg.get("retention_days", 30))
     modules_cfg = config.get("modules", {})
 
-    run_meta = {
+    run_meta: dict[str, Any] = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "verdict": "BENIGN",
         "modules_run": [],
