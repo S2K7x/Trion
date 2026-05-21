@@ -10,12 +10,12 @@ version: "3.8"
 services:
 
   dashboard:
-    build: .
+    build: ./trion-soc
     container_name: trion-dashboard
     restart: unless-stopped
     ports:
       - "3000:3000"
-    env_file: .env.local
+    env_file: ./trion-soc/.env.local
     depends_on:
       - n8n
 

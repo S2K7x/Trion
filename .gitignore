@@ -5,6 +5,7 @@
 /.pnp
 .pnp.js
 .yarn/install-state.gz
+trion-soc/node_modules
 
 # testing
 /coverage
@@ -12,6 +13,8 @@
 # next.js
 /.next/
 /out/
+trion-soc/.next/
+trion-soc/out/
 
 # production
 /build
@@ -35,6 +38,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+trion-soc/next-env.d.ts
 
 # n8n local data (SQLite, logs, config — do not commit)
 n8n_data/

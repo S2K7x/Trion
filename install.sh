@@ -219,13 +219,13 @@ print_summary() {
   case "$mode" in
     dev)
       echo -e "  Lancer le dashboard :"
-      echo -e "    ${CYAN}npm run dev${RESET}  →  http://localhost:3000"
+      echo -e "    ${CYAN}cd trion-soc && npm run dev${RESET}  →  http://localhost:3000"
       [[ -n "$pw" ]] && echo -e "    Mot de passe : ${BOLD}${pw}${RESET}"
       echo -e "  n8n  →  ${CYAN}http://localhost:5678${RESET}"
       ;;
     prod)
       echo -e "  Lancer le dashboard :"
-      echo -e "    ${CYAN}npm start${RESET}  →  http://localhost:3000"
+      echo -e "    ${CYAN}cd trion-soc && npm start${RESET}  →  http://localhost:3000"
       [[ -n "$pw" ]] && echo -e "    Mot de passe : ${BOLD}${pw}${RESET}"
       echo -e "  n8n  →  ${CYAN}http://localhost:5678${RESET}"
       ;;
@@ -265,7 +265,7 @@ print_summary() {
 # ════════════════════════════════════════════════════════════════════════════
 
 MODE="${TRION_MODE:-}"
-ENV_FILE="${TRION_ENV_FILE:-.env.local}"
+ENV_FILE="${TRION_ENV_FILE:-trion-soc/.env.local}"
 SKIP_DB=false
 COMPOSE_CMD=""
 
@@ -387,9 +387,9 @@ if [[ -f "$ENV_FILE" ]]; then
   ok "${ENV_FILE} trouvé — chargement des valeurs existantes"
   load_env "$ENV_FILE"
 else
-  [[ -f ".env.example" ]] || die ".env.example introuvable. Vérifier que le repo est complet."
-  info "Création de ${ENV_FILE} depuis .env.example"
-  cp .env.example "$ENV_FILE"
+  [[ -f "trion-soc/.env.example" ]] || die "trion-soc/.env.example introuvable. Vérifier que le repo est complet."
+  info "Création de ${ENV_FILE} depuis trion-soc/.env.example"
+  cp trion-soc/.env.example "$ENV_FILE"
 fi
 
 echo ""
@@ -445,9 +445,9 @@ ok "${ENV_FILE} configuré"
 step "4/5" "Schéma Supabase"
 
 SQL_FILES=(
-  "supabase/migrations/001_init.sql"
-  "supabase/migrations/002_trion_config.sql"
-  "supabase/migrations/003_rls_and_schema.sql"
+  "trion-soc/supabase/migrations/001_init.sql"
+  "trion-soc/supabase/migrations/002_trion_config.sql"
+  "trion-soc/supabase/migrations/003_rls_and_schema.sql"
 )
 
 if [[ "$SKIP_DB" == true ]]; then
@@ -488,7 +488,7 @@ case "$MODE" in
   dev)
     check_ports 3000 5678
     info "Installation des dépendances npm..."
-    npm install --loglevel=error --no-audit --no-fund \
+    (cd trion-soc && npm install --loglevel=error --no-audit --no-fund) \
       || die "npm install a échoué. Vérifier la version Node.js (≥ 18) et les logs ci-dessus."
     ok "Dépendances installées"
     info "Démarrage de n8n..."
@@ -501,11 +501,11 @@ case "$MODE" in
   prod)
     check_ports 3000 5678
     info "Installation des dépendances npm..."
-    npm install --loglevel=error --no-audit --no-fund \
+    (cd trion-soc && npm install --loglevel=error --no-audit --no-fund) \
       || die "npm install a échoué."
     ok "Dépendances installées"
     info "Build de production (peut prendre 1-2 min)..."
-    npm run build --loglevel=error \
+    (cd trion-soc && npm run build --loglevel=error) \
       || die "npm run build a échoué. Vérifier les erreurs TypeScript/lint ci-dessus."
     ok "Build terminé"
     info "Démarrage de n8n..."
@@ -518,7 +518,7 @@ case "$MODE" in
   docker)
     check_ports 3000 5678
     info "Build de l'image Docker (2-3 min au premier build)..."
-    docker build -t trion . \
+    docker build -t trion ./trion-soc \
       || die "docker build a échoué. Vérifier le Dockerfile et les erreurs ci-dessus."
     ok "Image trion construite"
     docker rm -f trion-dashboard &>/dev/null || true

@@ -11,7 +11,19 @@ Dashboard SOC (Security Operations Center) en Next.js 14. Affiche en temps réel
 ## Architecture
 
 ```
-mini-soc/
+Trion/
+├── trion-soc/                  # Dashboard Next.js (ce projet)
+├── trion-agent/                # Agent Python SOC
+├── demo/                       # Démo standalone (mock data)
+├── docker-compose.yaml         # n8n local dev
+├── docker-compose.soc.yaml     # Dashboard + n8n (full Docker)
+├── docker-compose.n8n-prod.yaml
+├── docker-compose.wazuh.yaml
+├── install.sh                  # Installeur unifié
+├── wazuh/                      # Intégration Wazuh
+└── docs/
+
+trion-soc/
 ├── app/
 │   ├── api/
 │   │   ├── auth/route.ts       # Login → génère un JWT cookie 24h
@@ -38,7 +50,8 @@ mini-soc/
 │   ├── queries.ts              # getDashboardStats() — 9 requêtes parallèles
 │   └── types.ts                # Interfaces TypeScript
 ├── middleware.ts               # Protection JWT sur toutes les routes sauf /login
-├── docker-compose.yaml         # n8n en local (port 5678)
+├── supabase/migrations/        # Migrations SQL Supabase
+├── Dockerfile                  # Image Docker standalone
 └── vercel.json                 # { "framework": "nextjs" }
 ```
 
