@@ -7,7 +7,7 @@
 Self-hosted Security Operations Center platform.
 Real-time alert triage, threat intelligence enrichment, and drift detection.
 
-[SOC Dashboard →](https://mini-soc.vercel.app) · [Docs](#documentation)
+[SOC Dashboard →](https://trion-snowy.vercel.app) · [Docs](#documentation)
 
 <p align="left">
   <img src="https://img.shields.io/badge/Next.js-14-black?logo=next.js" />
@@ -37,7 +37,7 @@ Trion is two independent tools that can be used together or separately. Each run
 
 > *Triage at the speed of threat.*
 
-Trion SOC connects Wazuh agents to a live Next.js dashboard through an automated n8n pipeline. Security events flow from Wazuh endpoints through three n8n workflows (`soc-ingest`, `soc-triage`, `soc-error-handler`) into a Supabase database, where the dashboard polls them every 30 seconds. IOCs are automatically enriched against VirusTotal, AbuseIPDB, and MalwareBazaar before being posted to Slack. A live demo is available at [mini-soc.vercel.app](https://mini-soc.vercel.app) — login: `demo` / `demo1234`.
+Trion SOC connects Wazuh agents to a live Next.js dashboard through an automated n8n pipeline. Security events flow from Wazuh endpoints through three n8n workflows (`soc-ingest`, `soc-triage`, `soc-error-handler`) into a Supabase database, where the dashboard polls them every 30 seconds. IOCs are automatically enriched against VirusTotal, AbuseIPDB, and MalwareBazaar before being posted to Slack. A live demo is available at [mini-soc.vercel.app](https://trion-snowy.vercel.app) — login: `demo`.
 
 ---
 
