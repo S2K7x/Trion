@@ -13,7 +13,7 @@
 # trion-agent
 > Silent. Daily. Precise.
 
-Part of the [Trion](https://github.com/S2K7x/Trion) SOC platform.
+Part of the [Trion](../README.md) platform. &nbsp;·&nbsp; [SOC Dashboard →](../trion-soc/README.md)
 
 ---
 
@@ -229,4 +229,6 @@ When `commands` is set, the built-in list is replaced entirely. Commands contain
 
 ## Standalone vs Trion SOC
 
-trion-agent runs fully standalone — no Wazuh, no n8n, no Trion SOC dashboard required. It reads its config from `config.toml` and sends alerts directly to Slack. The agent dashboard (port 8080) is also completely independent of the SOC dashboard (port 3000).
+trion-agent runs fully standalone — no Wazuh, no n8n, no Trion SOC dashboard required. It reads its config from `config.toml` and sends alerts directly to Slack. The agent dashboard (port 8080) is completely independent of the SOC dashboard (port 3000).
+
+To use both together on the same host, see the [root README](../README.md).
