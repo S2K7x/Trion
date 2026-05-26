@@ -7,8 +7,6 @@ import { levelToSeverity } from '@/lib/design'
 import { IocPill } from '@/components/primitives/IocPill'
 import { SeverityChip } from '@/components/primitives/SeverityChip'
 import { StatusBadge } from '@/components/primitives/StatusBadge'
-import { ChatButton } from '@/components/ChatButton'
-import { ChatPanel } from '@/components/ChatPanel'
 
 // ─── Severity config ──────────────────────────────────────────────────────────
 
@@ -121,7 +119,6 @@ interface AlertDetailProps {
 
 export default function AlertDetail({ alert, similar }: AlertDetailProps) {
   const [expanded, setExpanded] = useState(false)
-  const [chatOpen, setChatOpen] = useState(false)
 
   const lv = alert.llm_verdict ?? null
   const sev = resolveSeverity(lv, alert.rule_level)
@@ -178,7 +175,7 @@ export default function AlertDetail({ alert, similar }: AlertDetailProps) {
             className="ml-auto font-mono text-[12px] opacity-80"
             style={{ color: sevText }}
           >
-            Threat level {alert.rule_level ?? '?'} / 15
+            rule level {alert.rule_level ?? '?'} / 15
           </div>
         </div>
 
@@ -332,14 +329,14 @@ export default function AlertDetail({ alert, similar }: AlertDetailProps) {
                   )}
                 </div>
 
-                {/* Threat level progress bar */}
+                {/* Rule level progress bar */}
                 <div className="flex flex-col gap-1.5">
                   <div className="flex items-center justify-between">
                     <span
                       className="font-mono text-[10px] uppercase tracking-widest"
                       style={{ color: 'var(--muted)' }}
                     >
-                      Threat Level
+                      Rule level
                     </span>
                     <span
                       className="font-mono text-[11px]"
@@ -393,7 +390,7 @@ export default function AlertDetail({ alert, similar }: AlertDetailProps) {
                       className="font-mono text-[10px] uppercase tracking-widest"
                       style={{ color: 'var(--muted)' }}
                     >
-                      Suspicious Indicators ({alert.iocs.length})
+                      Indicators of Compromise ({alert.iocs.length})
                     </span>
                     <div className="flex flex-wrap gap-2">
                       {alert.iocs.map((ioc, i) => (
@@ -490,7 +487,7 @@ export default function AlertDetail({ alert, similar }: AlertDetailProps) {
                   }
                 >
                   <div className="flex items-center gap-3">
-                    <SeverityChip level={s.rule_level} showSub />
+                    <SeverityChip level={s.rule_level} />
                     <span
                       className="text-[13px] font-semibold truncate max-w-[340px]"
                       style={{ color: 'var(--text)' }}
@@ -510,18 +507,6 @@ export default function AlertDetail({ alert, similar }: AlertDetailProps) {
           </div>
         )}
       </div>
-
-      <ChatButton
-        onClick={() => setChatOpen(true)}
-        showBadge={sev === 'critical'}
-      />
-      <ChatPanel
-        open={chatOpen}
-        onClose={() => setChatOpen(false)}
-        mode="contextual"
-        alertId={String(alert.id)}
-        alertSeverity={sev}
-      />
     </main>
   )
 }

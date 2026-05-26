@@ -22,11 +22,6 @@ provider = "ollama"
 model = "llama3.2"
 
 # Endpoint URL — only used for Ollama. Ignored for openai/anthropic.
-# Where Ollama is reachable. Common values:
-#   localhost          → Ollama on the same machine, running natively
-#   host.docker.internal → Ollama on the host machine when the agent runs in Docker
-#                          (works on macOS/Windows natively; Linux needs extra_hosts in docker-compose.yml — already set)
-#   192.168.x.x        → Ollama on a remote machine (also set OLLAMA_HOST=0.0.0.0 on that machine)
 endpoint = "http://localhost:11434"
 
 # API key — required for openai and anthropic. Leave empty for ollama.

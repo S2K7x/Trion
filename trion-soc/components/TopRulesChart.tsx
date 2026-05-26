@@ -28,15 +28,17 @@ export function TopRulesChart({ rules }: TopRulesChartProps) {
         style={{ borderBottom: '1px solid var(--border)' }}
       >
         <div className="text-[13px] font-bold tracking-tight" style={{ color: 'var(--text)' }}>
-          Most Frequent Detections — Last 7 Days
+          Top rules · last 7d
         </div>
       </div>
 
       <div className="px-5 py-4">
         {rules.length === 0 ? (
-          <div className="h-[160px] flex flex-col items-center justify-center gap-1">
-            <div className="text-[12px] font-semibold" style={{ color: 'var(--muted)' }}>No detections recorded in the last 7 days</div>
-            <div className="font-mono text-[11px]" style={{ color: 'var(--border-2)' }}>No patterns to display yet.</div>
+          <div
+            className="h-[160px] flex items-center justify-center font-mono text-[12px]"
+            style={{ color: 'var(--border-2)' }}
+          >
+            no data in last 7d
           </div>
         ) : (
           <TopRulesChartInner rules={rules} />

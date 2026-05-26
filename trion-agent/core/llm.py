@@ -2,7 +2,6 @@
 import json
 import logging
 import socket
-import time
 from datetime import date
 from typing import Any
 
@@ -222,48 +221,11 @@ def analyze(diffs: list[dict[str, Any]], config: dict[str, Any], os_type: str) -
         # Redact credentials that may be embedded in the endpoint URL.
         raw_endpoint = config.get("endpoint", "")
         safe_endpoint = raw_endpoint.split("@")[-1] if "@" in raw_endpoint else raw_endpoint
-        if provider == "ollama":
-            logger.error(
-                "LLM unreachable (ollama @ %s). "
-                "If Ollama runs on a remote machine, set endpoint = http://<REMOTE_IP>:11434 "
-                "in config.toml and ensure OLLAMA_HOST=0.0.0.0 on that machine.",
-                safe_endpoint,
-            )
-        else:
-            logger.error("LLM unreachable (%s @ %s)", provider, safe_endpoint)
+        logger.error("LLM unreachable (%s @ %s)", provider, safe_endpoint)
         return dict(_FALLBACK)
     except requests.RequestException as exc:
         logger.error("LLM request failed (%s): %s", provider, exc)
         return dict(_FALLBACK)
-
-
-def check_ollama_connectivity(endpoint: str, timeout: int = 5) -> tuple[bool, float | None]:
-    """Check if the Ollama server is reachable via GET /api/tags.
-
-    Returns (reachable, latency_ms). latency_ms is None when unreachable.
-    """
-    url = f"{endpoint.rstrip('/')}/api/tags"
-    try:
-        t0 = time.monotonic()
-        resp = requests.get(url, timeout=timeout)
-        latency_ms = (time.monotonic() - t0) * 1000
-        resp.raise_for_status()
-        logger.info("LLM (ollama): reachable at %s (%.0fms)", endpoint, latency_ms)
-        return True, latency_ms
-    except requests.ConnectionError:
-        logger.error(
-            "LLM (ollama): unreachable at %s — "
-            "if Ollama runs on a remote machine, set endpoint = http://<REMOTE_IP>:11434 "
-            "in config.toml and ensure OLLAMA_HOST=0.0.0.0 on that machine.",
-            endpoint,
-        )
-        return False, None
-    except requests.Timeout:
-        logger.error("LLM (ollama): connection timed out at %s", endpoint)
-        return False, None
-    except requests.RequestException as exc:
-        logger.error("LLM (ollama): connectivity check failed: %s", exc)
-        return False, None
 
 
 def _call_ollama(context: dict[str, Any], os_type: str, config: dict[str, Any], timeout: int) -> dict[str, Any]:

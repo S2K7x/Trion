@@ -9,8 +9,6 @@ import { TopRulesChart } from './TopRulesChart'
 import { AlertsTable } from './AlertsTable'
 import { TopIocsTable } from './TopIocsTable'
 import { WorkflowCards } from './WorkflowCards'
-import { ChatButton } from './ChatButton'
-import { ChatPanel } from './ChatPanel'
 
 interface DashboardShellProps {
   initialData: StatsResponse
@@ -20,7 +18,6 @@ export function DashboardShell({ initialData }: DashboardShellProps) {
   const [data, setData] = useState<StatsResponse>(initialData)
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
   const [secsAgo, setSecsAgo] = useState(0)
-  const [chatOpen, setChatOpen] = useState(false)
   const router = useRouter()
 
   const refresh = useCallback(async () => {
@@ -58,10 +55,10 @@ export function DashboardShell({ initialData }: DashboardShellProps) {
       <div className="fade-up-1 flex items-start justify-between">
         <div>
           <div className="text-xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>
-            Security Overview
+            Overview
           </div>
           <div className="font-mono text-[12px] mt-0.5 flex items-center gap-2" style={{ color: 'var(--muted)' }}>
-            Updated {secsAgo}s ago · refreshes automatically
+            Last sync · {secsAgo}s ago · polling every 30s
             {secsAgo > 90 && (
               <span
                 className="font-mono text-[10px] px-1.5 py-px rounded"
@@ -90,13 +87,6 @@ export function DashboardShell({ initialData }: DashboardShellProps) {
       <div className="fade-up-4">
         <TopRulesChart rules={data.top_rules} />
       </div>
-
-      <ChatButton onClick={() => setChatOpen(true)} />
-      <ChatPanel
-        open={chatOpen}
-        onClose={() => setChatOpen(false)}
-        mode="generic"
-      />
     </main>
   )
 }

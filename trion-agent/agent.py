@@ -332,20 +332,12 @@ def show_status(config: dict) -> None:
         module_parts.append(f"{m} {'✓' if enabled else '✗ (disabled)'}")
     modules_str = " | ".join(module_parts) if module_parts else "(none)"
 
-    provider = llm_cfg.get("provider", "?")
     endpoint = llm_cfg.get("endpoint", "")
-    model = llm_cfg.get("model", "?")
-    base_llm_str = (
-        f"{provider} @ {endpoint} (model: {model})"
+    llm_str = (
+        f"{llm_cfg.get('provider', '?')} @ {endpoint} (model: {llm_cfg.get('model', '?')})"
         if endpoint
-        else f"{provider} (model: {model})"
+        else f"{llm_cfg.get('provider', '?')} (model: {llm_cfg.get('model', '?')})"
     )
-    if provider == "ollama" and endpoint:
-        reachable, latency = llm_module.check_ollama_connectivity(endpoint)
-        connectivity = f"✓ reachable ({latency:.0f}ms)" if reachable else "✗ unreachable — see config.toml"
-        llm_str = f"{base_llm_str} — {connectivity}"
-    else:
-        llm_str = base_llm_str
 
     webhook = notif_cfg.get("slack_webhook", "")
     slack_ok = bool(webhook) and not webhook.startswith("https://hooks.slack.com/services/YOUR")

@@ -28,19 +28,21 @@ export function TrendChart({ trend }: TrendChartProps) {
         style={{ borderBottom: '1px solid var(--border)' }}
       >
         <div className="text-[13px] font-bold tracking-tight" style={{ color: 'var(--text)' }}>
-          Security Events — Last 24 Hours
+          Alert volume · 24h
         </div>
         <div className="font-mono text-[10px] flex items-center gap-3" style={{ color: 'var(--muted)' }}>
-          <span><span style={{ color: 'var(--accent)' }}>■</span> all events</span>
-          <span><span style={{ color: 'var(--red)' }}>■</span> high severity</span>
+          <span><span style={{ color: 'var(--accent)' }}>■</span> total</span>
+          <span><span style={{ color: 'var(--red)' }}>■</span> critical</span>
         </div>
       </div>
 
       <div className="px-5 py-4">
         {trend.length === 0 ? (
-          <div className="h-[140px] flex flex-col items-center justify-center gap-1">
-            <div className="text-[12px] font-semibold" style={{ color: 'var(--muted)' }}>No events in the last 24 hours</div>
-            <div className="font-mono text-[11px]" style={{ color: 'var(--border-2)' }}>Your systems look clean.</div>
+          <div
+            className="h-[140px] flex items-center justify-center font-mono text-[12px]"
+            style={{ color: 'var(--border-2)' }}
+          >
+            no data in last 24h
           </div>
         ) : (
           <TrendChartInner trend={trend} />

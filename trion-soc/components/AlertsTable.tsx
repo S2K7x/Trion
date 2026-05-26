@@ -12,14 +12,6 @@ interface AlertsTableProps {
 
 const PAGE_SIZE = 10
 
-const SEV_PHRASES: Record<string, string> = {
-  CRITICAL: 'Immediate action required',
-  HIGH:     'Review soon',
-  MEDIUM:   'Monitor closely',
-  LOW:      'Informational',
-  UNK:      'Unknown',
-}
-
 function formatTime(iso: string): string {
   try {
     return new Date(iso).toLocaleString('en-GB', {
@@ -49,7 +41,7 @@ export function AlertsTable({ alerts }: AlertsTableProps) {
         style={{ borderBottom: '1px solid var(--border)' }}
       >
         <div className="text-[13px] font-bold tracking-tight" style={{ color: 'var(--text)' }}>
-          Recent Alerts
+          Alert Queue
         </div>
         <div className="font-mono text-[12px]" style={{ color: 'var(--accent)' }}>
           {alerts.length} total
@@ -57,9 +49,8 @@ export function AlertsTable({ alerts }: AlertsTableProps) {
       </div>
 
       {alerts.length === 0 ? (
-        <div className="py-12 text-center flex flex-col items-center gap-1.5">
-          <div className="text-[13px] font-semibold" style={{ color: 'var(--muted)' }}>No alerts in the last 24 hours</div>
-          <div className="font-mono text-[11px]" style={{ color: 'var(--border-2)' }}>Your systems look clean.</div>
+        <div className="font-mono text-[12px] py-10 text-center" style={{ color: 'var(--border-2)' }}>
+          no alerts
         </div>
       ) : (
         <>
@@ -98,8 +89,9 @@ export function AlertsTable({ alerts }: AlertsTableProps) {
                             {alert.rule_desc ?? alert.rule_id ?? '—'}
                           </span>
                         </div>
-                        <div className="font-mono text-[11px] mt-0.5 pl-[15px]" style={{ color: sev.color, opacity: 0.7 }}>
-                          {SEV_PHRASES[sev.label]}
+                        <div className="font-mono text-[11px] mt-0.5 pl-[15px]" style={{ color: 'var(--muted)' }}>
+                          rule:{alert.rule_id ?? '—'}
+                          {alert.rule_level != null && ` · lvl ${alert.rule_level}`}
                         </div>
                       </td>
                       <td className="px-5 py-3 align-middle font-mono text-[11px]" style={{ color: 'var(--muted)' }}>
