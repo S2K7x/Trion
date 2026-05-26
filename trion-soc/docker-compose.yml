@@ -21,7 +21,8 @@ services:
       - "3000:3000"
     env_file: .env.local
     depends_on:
-      - n8n
+      n8n:
+        condition: service_healthy
     networks:
       - soc_net
 
@@ -49,6 +50,12 @@ services:
       - ./n8n_data:/home/node/.n8n
     networks:
       - soc_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz 2>/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
 networks:
   soc_net:

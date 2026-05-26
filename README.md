@@ -16,6 +16,7 @@ Real-time alert triage, threat intelligence enrichment, and endpoint drift detec
   <img src="https://img.shields.io/badge/Wazuh-4.9-005571" />
   <img src="https://img.shields.io/badge/n8n-automation-ef6c00" />
   <img src="https://img.shields.io/badge/Docker-ready-2496ed?logo=docker&logoColor=white" />
+  <img src="https://img.shields.io/badge/ARM64-RPi5-c51a4a?logo=raspberrypi&logoColor=white" />
   <img src="https://img.shields.io/badge/Vercel-deployable-black?logo=vercel" />
   <img src="https://img.shields.io/badge/demo-live-brightgreen" />
 </p>
@@ -35,51 +36,74 @@ Neither component requires the other. Run the dashboard only, the agent only, or
 
 ---
 
-## Repo structure
+## Prerequisites
 
-```
-Trion/
-├── trion-soc/                    # SOC web dashboard (Next.js + Supabase)
-├── trion-agent/                  # Drift detection agent (Python)
-├── demo/                         # Standalone demo with mock data — no backend needed
-├── docs/                         # Architecture, deployment, and threat-intel docs
-├── wazuh/                        # Wazuh integration scripts (custom-n8n, ossec config)
-├── n8n_workflows/                # n8n workflow JSON files to import
-│
-├── docker-compose.soc.yaml       # SOC dashboard + n8n — full stack in one command
-├── docker-compose.yaml           # n8n only — for local dev alongside npm run dev
-├── docker-compose.n8n-prod.yaml  # n8n production (PostgreSQL + Redis + Cloudflare Tunnel)
-├── docker-compose.wazuh.yaml     # Wazuh stack
-│
-├── install.sh                    # Interactive installer — handles everything for you
-└── README.md                     # This file
-```
+- **Docker Engine 24+** with **Docker Compose v2** (`docker compose` — note: no hyphen)
+- A [Supabase](https://supabase.com) account (free tier is enough) — for the SOC dashboard
+- An LLM provider (Ollama local, OpenAI, or Anthropic) — for the drift agent
+
+All Docker images are multi-arch and run on **x86_64 and ARM64 (Raspberry Pi 5)**.
 
 ---
 
 ## Quick start
 
-### SOC Dashboard
+### SOC Dashboard (n8n + dashboard)
 
 ```bash
 git clone https://github.com/S2K7x/Trion
-cd Trion
-./install.sh
+cd Trion/trion-soc
+cp .env.example .env.local      # fill in Supabase credentials, dashboard password
+docker compose up -d --build    # starts dashboard (port 3000) + n8n (port 5678)
 ```
 
-The script asks a few questions (Supabase credentials, dashboard password) and starts everything.
-Full setup guide: [trion-soc/README.md](trion-soc/README.md)
+Full setup guide → [trion-soc/README.md](trion-soc/README.md)
 
 ### Drift Agent
 
 ```bash
-cd trion-agent
-./install.sh          # Linux / macOS
-# or
-./install.ps1         # Windows
+cd Trion/trion-agent
+cp config.toml.example config.toml   # set your LLM provider and Slack webhook
+docker compose up -d --build          # starts agent + dashboard (port 8080)
 ```
 
-Full setup guide: [trion-agent/README.md](trion-agent/README.md)
+Full setup guide → [trion-agent/README.md](trion-agent/README.md)
+
+---
+
+## Alternative: interactive installer
+
+If you prefer a guided setup, `install.sh` prompts for all values and orchestrates Docker for you:
+
+```bash
+cd Trion
+./install.sh    # interactive — asks for mode, credentials, starts everything
+```
+
+---
+
+## Repo structure
+
+```
+Trion/
+├── trion-soc/                    # SOC web dashboard (Next.js + Supabase)
+│   ├── docker-compose.yml        # n8n + dashboard — default stack
+│   ├── docker-compose.dev.yml    # n8n only (dev / SQLite)
+│   ├── docker-compose.prod.yml   # n8n production (PostgreSQL + Redis + Cloudflare Tunnel)
+│   ├── .env.example              # environment variables template
+│   └── .env.n8n.example          # n8n production env template
+├── trion-agent/                  # Drift detection agent (Python)
+│   ├── docker-compose.yml        # agent + dashboard
+│   └── config.toml.example       # configuration template
+├── wazuh/                        # Wazuh integration
+│   ├── docker-compose.yml        # Wazuh single-node stack
+│   └── .env.example              # Wazuh env template
+├── demo/                         # Standalone demo with mock data — no backend needed
+├── docs/                         # Architecture, deployment, and threat-intel docs
+├── n8n_workflows/                # n8n workflow JSON files to import
+├── install.sh                    # Interactive installer — alternative to manual Docker setup
+└── README.md                     # This file
+```
 
 ---
 
@@ -98,6 +122,8 @@ trion-agent (any host)
             └── agent dashboard (port 8080)
 ```
 
+The two components connect only through external services (Supabase, Slack) — no shared Docker network required.
+
 ---
 
 ## Tech stack
@@ -109,7 +135,7 @@ trion-agent (any host)
 | Automation | n8n (self-hosted) |
 | Database | Supabase (PostgreSQL) |
 | SIEM | Wazuh 4.9 |
-| Deployment | Vercel · Docker |
+| Deployment | Docker · Vercel |
 | LLM (agent) | Ollama · OpenAI · Anthropic |
 
 ---

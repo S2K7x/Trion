@@ -50,6 +50,12 @@ services:
       - ./n8n_data:/home/node/.n8n
     networks:
       - soc_dev_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz 2>/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
 networks:
   soc_dev_net:
