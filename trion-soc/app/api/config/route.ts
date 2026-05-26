@@ -57,32 +57,46 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!(await verifyAuth(request))) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  try {
+    if (!(await verifyAuth(request))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!process.env.MASTER_SECRET) {
+      console.error('[trion] config POST: MASTER_SECRET is not set in environment variables')
+      return NextResponse.json(
+        { error: 'Server misconfiguration: MASTER_SECRET is missing. Add it to .env.local and restart the server.' },
+        { status: 500 },
+      )
+    }
+
+    const body = await request.json()
+    const { key, value } = body as { key: string; value: string }
+
+    if (!key || value === undefined) {
+      return NextResponse.json({ error: 'Missing key or value' }, { status: 400 })
+    }
+
+    if (!ALLOWED_KEYS.has(key)) {
+      return NextResponse.json({ error: `Invalid config key: "${key}"` }, { status: 400 })
+    }
+
+    const supabase = createServerSupabase()
+    const storedValue = UNENCRYPTED_KEYS.has(key) ? value : encryptValue(value)
+
+    const { error } = await supabase
+      .from('trion_config')
+      .upsert({ key, value: storedValue, updated_at: new Date().toISOString() }, { onConflict: 'key' })
+
+    if (error) {
+      console.error('[trion] config POST DB error:', error.message)
+      return NextResponse.json({ error: 'Database error' }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (err: unknown) {
+    console.error('[trion] config POST unexpected error:', err)
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    return NextResponse.json({ error: `Internal server error: ${message}` }, { status: 500 })
   }
-
-  const body = await request.json()
-  const { key, value } = body as { key: string; value: string }
-
-  if (!key || value === undefined) {
-    return NextResponse.json({ error: 'Missing key or value' }, { status: 400 })
-  }
-
-  if (!ALLOWED_KEYS.has(key)) {
-    return NextResponse.json({ error: 'Invalid config key' }, { status: 400 })
-  }
-
-  const supabase = createServerSupabase()
-  const storedValue = UNENCRYPTED_KEYS.has(key) ? value : encryptValue(value)
-
-  const { error } = await supabase
-    .from('trion_config')
-    .upsert({ key, value: storedValue, updated_at: new Date().toISOString() }, { onConflict: 'key' })
-
-  if (error) {
-    console.error('[trion] config POST DB error:', error.message)
-    return NextResponse.json({ error: 'Database error' }, { status: 500 })
-  }
-
-  return NextResponse.json({ success: true })
 }

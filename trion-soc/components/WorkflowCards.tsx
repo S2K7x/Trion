@@ -37,7 +37,7 @@ function WorkflowCard({ workflow, isLast }: { workflow: WorkflowStatus; isLast: 
           {workflow.name}
         </div>
         <div className="font-mono text-[10px] mt-0.5" style={{ color: 'var(--muted)' }}>
-          {unreachable ? 'n8n unreachable' : workflow.active ? 'active' : 'inactive'}
+          {unreachable ? 'service unreachable' : workflow.active ? 'running' : 'inactive'}
         </div>
       </div>
       <div className="font-mono text-[10px] shrink-0" style={{ color: 'var(--muted)' }}>
@@ -60,7 +60,7 @@ export function WorkflowCards({ workflows }: WorkflowCardsProps) {
         style={{ borderBottom: '1px solid var(--border)' }}
       >
         <div className="text-[13px] font-bold tracking-tight" style={{ color: 'var(--text)' }}>
-          n8n Workflows
+          Automation Status
         </div>
       </div>
 
@@ -69,7 +69,7 @@ export function WorkflowCards({ workflows }: WorkflowCardsProps) {
           className="mx-4 mt-3 px-3 py-2 rounded-[8px] font-mono text-[11px]"
           style={{ background: 'rgba(210,153,34,0.08)', border: '1px solid rgba(210,153,34,0.20)', color: 'var(--yellow)' }}
         >
-          ⚠ n8n unreachable — check Cloudflare Tunnel
+          ⚠ Automation service unreachable — check your connection
         </div>
       )}
 
@@ -78,8 +78,9 @@ export function WorkflowCards({ workflows }: WorkflowCardsProps) {
           <WorkflowCard key={wf.name} workflow={wf} isLast={i === workflows.length - 1} />
         ))}
         {workflows.length === 0 && (
-          <div className="font-mono text-[12px] py-8 text-center" style={{ color: 'var(--border-2)' }}>
-            no workflows
+          <div className="py-8 text-center flex flex-col items-center gap-1">
+            <div className="text-[12px] font-semibold" style={{ color: 'var(--muted)' }}>No automation workflows configured</div>
+            <div className="font-mono text-[11px]" style={{ color: 'var(--border-2)' }}>Set up n8n to enable automatic alert processing.</div>
           </div>
         )}
       </div>
