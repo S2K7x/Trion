@@ -22,16 +22,17 @@ export function TopIocsTable({ iocs }: TopIocsTableProps) {
         style={{ borderBottom: '1px solid var(--border)' }}
       >
         <div className="text-[13px] font-bold tracking-tight" style={{ color: 'var(--text)' }}>
-          Recent IOC hits
+          Suspicious Indicators
         </div>
         <span className="font-mono text-[12px]" style={{ color: 'var(--accent)' }}>
-          7d
+          Last 7 days
         </span>
       </div>
 
       {iocs.length === 0 ? (
-        <div className="font-mono text-[12px] py-8 text-center" style={{ color: 'var(--border-2)' }}>
-          no malicious iocs detected
+        <div className="py-8 text-center flex flex-col items-center gap-1">
+          <div className="text-[12px] font-semibold" style={{ color: 'var(--muted)' }}>No suspicious indicators found</div>
+          <div className="font-mono text-[11px]" style={{ color: 'var(--border-2)' }}>No known threats detected in the last 7 days.</div>
         </div>
       ) : (
         <div>

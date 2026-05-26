@@ -34,6 +34,8 @@ services:
   agent:
     build: .
     container_name: trion-agent-scanner
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # lets the container reach Ollama on the host (Linux)
     volumes:
       - ./data:/app/data        # shares data dir with dashboard
       - ./config.toml:/app/config.toml:ro

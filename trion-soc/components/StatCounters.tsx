@@ -15,30 +15,34 @@ export function StatCounters({ counters }: StatCountersProps) {
       <StatCard
         label="Alerts Today"
         value={counters.today}
-        sub="↑ last 24h"
+        sub="security events in the last 24h"
         color="var(--accent)"
         orb="blue"
+        tooltip="Total number of security events detected across all monitored systems in the past 24 hours."
       />
       <StatCard
-        label="Pending"
+        label="Awaiting Review"
         value={counters.queue_depth}
-        sub="queue depth"
+        sub="not yet processed"
         color="var(--yellow)"
         orb="yellow"
+        tooltip="Alerts received but not yet analyzed. A high number may mean the automation pipeline is backed up."
       />
       <StatCard
-        label="Critical (24h)"
+        label="High Severity"
         value={counters.critical}
-        sub="rule level ≥ 12"
+        sub="require immediate attention"
         color="var(--red)"
         orb="red"
+        tooltip="Alerts rated High or Critical in the past 24 hours. These should be reviewed as soon as possible."
       />
       <StatCard
-        label="Error Rate"
+        label="Processing Errors"
         value={errorRateDisplay}
-        sub="status = error"
+        sub={errorHigh ? 'above normal — check workflows' : 'within normal range'}
         color={errorHigh ? 'var(--red)' : 'var(--green)'}
         orb={errorHigh ? 'red' : 'green'}
+        tooltip="Percentage of alerts that failed to process correctly. Above 5% may indicate a problem with the automation pipeline."
       />
     </div>
   )
