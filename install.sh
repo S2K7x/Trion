@@ -234,8 +234,8 @@ print_summary() {
       [[ -n "$pw" ]] && echo -e "  Mot de passe  : ${BOLD}${pw}${RESET}"
       echo -e "  n8n        →  ${CYAN}http://localhost:5678${RESET}"
       echo ""
-      local cf="docker-compose.soc.yaml"
-      [[ "$mode" == "docker" ]] && cf="docker-compose.yaml"
+      local cf="trion-soc/docker-compose.yml"
+      [[ "$mode" == "docker" ]] && cf="trion-soc/docker-compose.dev.yml"
       echo -e "  ${DIM}Logs   : ${COMPOSE_CMD} -f ${cf} logs -f${RESET}"
       echo -e "  ${DIM}Arrêt  : ${COMPOSE_CMD} -f ${cf} down${RESET}"
       ;;
@@ -481,7 +481,7 @@ fi
 step "5/5" "Démarrage des services"
 
 # S'assurer que le dossier volume n8n existe (évite erreur de permission Docker)
-mkdir -p n8n_data
+mkdir -p trion-soc/n8n_data
 
 case "$MODE" in
 
@@ -492,8 +492,8 @@ case "$MODE" in
       || die "npm install a échoué. Vérifier la version Node.js (≥ 18) et les logs ci-dessus."
     ok "Dépendances installées"
     info "Démarrage de n8n..."
-    $COMPOSE_CMD up -d \
-      || die "Échec docker compose up. Logs : ${COMPOSE_CMD} logs n8n"
+    $COMPOSE_CMD -f trion-soc/docker-compose.dev.yml up -d \
+      || die "Échec docker compose up. Logs : ${COMPOSE_CMD} -f trion-soc/docker-compose.dev.yml logs n8n"
     ok "n8n démarré"
     print_summary "dev"
     ;;
@@ -509,7 +509,7 @@ case "$MODE" in
       || die "npm run build a échoué. Vérifier les erreurs TypeScript/lint ci-dessus."
     ok "Build terminé"
     info "Démarrage de n8n..."
-    $COMPOSE_CMD up -d \
+    $COMPOSE_CMD -f trion-soc/docker-compose.dev.yml up -d \
       || die "Échec docker compose up."
     ok "n8n démarré"
     print_summary "prod"
@@ -532,7 +532,7 @@ case "$MODE" in
       || die "docker run a échoué. Logs : docker logs trion-dashboard"
     ok "Dashboard démarré"
     info "Démarrage de n8n..."
-    $COMPOSE_CMD up -d \
+    $COMPOSE_CMD -f trion-soc/docker-compose.dev.yml up -d \
       || die "Échec docker compose up."
     ok "n8n démarré"
     print_summary "docker"
@@ -540,17 +540,17 @@ case "$MODE" in
 
   full)
     check_ports 3000 5678
-    info "Démarrage complet (docker-compose.soc.yaml)..."
-    $COMPOSE_CMD -f docker-compose.soc.yaml up -d --build \
-      || die "Échec docker compose up. Logs : ${COMPOSE_CMD} -f docker-compose.soc.yaml logs"
+    info "Démarrage complet (trion-soc/docker-compose.yml)..."
+    $COMPOSE_CMD -f trion-soc/docker-compose.yml up -d --build \
+      || die "Échec docker compose up. Logs : ${COMPOSE_CMD} -f trion-soc/docker-compose.yml logs"
     ok "Tous les services démarrés"
     print_summary "full"
     ;;
 
   wazuh)
     check_ports 3000 5678
-    info "Démarrage mini-soc (docker-compose.soc.yaml)..."
-    $COMPOSE_CMD -f docker-compose.soc.yaml up -d --build \
+    info "Démarrage mini-soc (trion-soc/docker-compose.yml)..."
+    $COMPOSE_CMD -f trion-soc/docker-compose.yml up -d --build \
       || die "Échec docker compose up."
     ok "Dashboard + n8n démarrés"
     print_summary "wazuh"

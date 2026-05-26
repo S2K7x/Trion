@@ -3,21 +3,27 @@ version: "3.8"
 # Mode full Docker : dashboard + n8n dans des containers
 # La base de données reste sur Supabase cloud.
 #
-# Usage :
+# Usage (dashboard + n8n) :
 #   cp .env.example .env.local   # remplir les valeurs
-#   docker compose -f docker-compose.full.yaml up -d --build
+#   docker compose up -d --build
+#
+# Usage (n8n uniquement — dashboard sur Vercel) :
+#   cp .env.n8n.example .env.n8n
+#   docker compose --env-file .env.n8n up -d n8n
 
 services:
 
   dashboard:
-    build: ./trion-soc
+    build: .
     container_name: trion-dashboard
     restart: unless-stopped
     ports:
       - "3000:3000"
-    env_file: ./trion-soc/.env.local
+    env_file: .env.local
     depends_on:
       - n8n
+    networks:
+      - soc_net
 
   n8n:
     image: docker.n8n.io/n8nio/n8n:1.93.0
@@ -41,3 +47,9 @@ services:
       - N8N_DIAGNOSTICS_ENABLED=false
     volumes:
       - ./n8n_data:/home/node/.n8n
+    networks:
+      - soc_net
+
+networks:
+  soc_net:
+    driver: bridge
