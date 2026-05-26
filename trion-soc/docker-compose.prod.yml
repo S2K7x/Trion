@@ -7,13 +7,13 @@ version: "3.8"
 #   (en queue mode, les Code nodes s'exécutent sur le worker)
 #
 # Usage :
-#   cp .env.n8n.example .env
-#   # remplir .env
-#   docker compose -f docker-compose.n8n-prod.yaml up -d
+#   cp .env.n8n.example .env.n8n
+#   # remplir .env.n8n
+#   docker compose -f docker-compose.prod.yml --env-file .env.n8n up -d
 #
 # Mise à jour :
-#   docker compose -f docker-compose.n8n-prod.yaml pull
-#   docker compose -f docker-compose.n8n-prod.yaml up -d
+#   docker compose -f docker-compose.prod.yml --env-file .env.n8n pull
+#   docker compose -f docker-compose.prod.yml --env-file .env.n8n up -d
 
 # ── Variables d'environnement partagées ──────────────────────────────────────
 # Anchor séparé pour les variables d'env uniquement (pas la config service).
@@ -60,13 +60,13 @@ x-n8n-common: &n8n-common
   image: docker.n8n.io/n8nio/n8n:1.93.0
   restart: unless-stopped
   env_file:
-    - .env
+    - .env.n8n
   environment:
     <<: *n8n-env
   extra_hosts:
     - "host.docker.internal:host-gateway"
   networks:
-    - n8n_net
+    - soc_prod_net
 
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -75,16 +75,16 @@ services:
   # ── PostgreSQL ────────────────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
-    container_name: n8n_postgres
+    container_name: soc_postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_POSTGRESDB_USER}
       POSTGRES_PASSWORD: ${DB_POSTGRESDB_PASSWORD}
       POSTGRES_DB: ${DB_POSTGRESDB_DATABASE}
     volumes:
-      - ./postgres_data:/var/lib/postgresql/data
+      - soc_postgres_data:/var/lib/postgresql/data
     networks:
-      - n8n_net
+      - soc_prod_net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_POSTGRESDB_USER} -d ${DB_POSTGRESDB_DATABASE}"]
       interval: 10s
@@ -95,13 +95,13 @@ services:
   # ── Redis ─────────────────────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
-    container_name: n8n_redis
+    container_name: soc_redis
     restart: unless-stopped
     command: redis-server --requirepass ${REDIS_PASSWORD} --save 60 1 --loglevel warning
     volumes:
-      - ./redis_data:/data
+      - soc_redis_data:/data
     networks:
-      - n8n_net
+      - soc_prod_net
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
@@ -112,7 +112,7 @@ services:
   # ── n8n Main ──────────────────────────────────────────────────────────────────
   n8n-main:
     <<: *n8n-common
-    container_name: n8n_main
+    container_name: soc_n8n_main
     environment:
       <<: *n8n-env
       N8N_HOST: ${N8N_HOST:-localhost}
@@ -125,7 +125,7 @@ services:
     ports:
       - "5678:5678"
     volumes:
-      - ./n8n_data:/home/node/.n8n
+      - soc_n8n_data:/home/node/.n8n
     depends_on:
       postgres:
         condition: service_healthy
@@ -138,14 +138,14 @@ services:
   # du bug "Module 'crypto' is disallowed").
   n8n-worker:
     <<: *n8n-common
-    container_name: n8n_worker
+    container_name: soc_n8n_worker
     entrypoint: ["n8n", "worker"]
     environment:
       <<: *n8n-env
       N8N_DISABLE_UI: "true"
       N8N_SECURE_COOKIE: "false"
     volumes:
-      - ./n8n_data:/home/node/.n8n
+      - soc_n8n_data:/home/node/.n8n
     depends_on:
       postgres:
         condition: service_healthy
@@ -157,16 +157,21 @@ services:
   # ── Cloudflare Tunnel ─────────────────────────────────────────────────────────
   cloudflared:
     image: cloudflare/cloudflared:2025.1.0
-    container_name: n8n_cloudflared
+    container_name: soc_cloudflared
     restart: unless-stopped
     command: tunnel --no-autoupdate run
     environment:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
     networks:
-      - n8n_net
+      - soc_prod_net
     depends_on:
       - n8n-main
 
 networks:
-  n8n_net:
+  soc_prod_net:
     driver: bridge
+
+volumes:
+  soc_postgres_data:
+  soc_redis_data:
+  soc_n8n_data:

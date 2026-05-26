@@ -2,7 +2,10 @@ version: "3.8"
 
 # n8n local — développement (SQLite, pas de queue, accès localhost)
 # Pour le setup production (PostgreSQL + Redis + Worker + Cloudflare),
-# utiliser docker-compose.n8n-prod.yaml
+# utiliser docker-compose.prod.yml
+#
+# Usage :
+#   docker compose -f docker-compose.dev.yml up -d
 
 services:
   n8n:
@@ -45,3 +48,9 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./n8n_data:/home/node/.n8n
+    networks:
+      - soc_dev_net
+
+networks:
+  soc_dev_net:
+    driver: bridge

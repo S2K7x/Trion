@@ -3,15 +3,17 @@ version: '3.9'
 # Wazuh 4.9.x — déploiement single-node
 #
 # ATTENTION : ce fichier nécessite des certificats TLS générés au préalable.
-# Suivre les étapes dans le README (section "Configurer Wazuh") avant de lancer.
+# Suivre les étapes ci-dessous depuis le dossier wazuh/ avant de lancer.
 #
-# Usage recommandé :
-#   cp .env.wazuh.example .env.wazuh
+# Usage recommandé (depuis le dossier wazuh/) :
+#   cp .env.example .env.wazuh
 #   # remplir les mots de passe dans .env.wazuh
 #   git clone https://github.com/wazuh/wazuh-docker.git
 #   cd wazuh-docker && git checkout v4.9.0
 #   cd single-node
 #   docker compose -f generate-indexer-certs.yml run --rm generator
+#   # copier les certs générés dans wazuh/config/wazuh_indexer_ssl_certs/
+#   cd ../..  # retour dans wazuh/
 #   docker compose --env-file .env.wazuh up -d
 #
 # Ce fichier est fourni comme référence de configuration.
