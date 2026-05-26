@@ -5,6 +5,7 @@
 ![Python](https://img.shields.io/badge/Python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white)
 ![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-161b22?style=flat-square)
 ![LLM](https://img.shields.io/badge/LLM-Ollama%20%7C%20OpenAI%20%7C%20Anthropic-58a6ff?style=flat-square)
+![ARM64](https://img.shields.io/badge/ARM64-RPi5-c51a4a?style=flat-square&logo=raspberrypi&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-3fb950?style=flat-square)
 ![Part of Trion](https://img.shields.io/badge/Part%20of-Trion-f85149?style=flat-square)
 
@@ -53,53 +54,28 @@ agent.py → collector → differ → llm → notifier → Slack
 
 ---
 
-## Requirements
+## Prerequisites
 
-- Python 3.11+
-- pip
-- A LLM provider: Ollama (local, no API key) or an OpenAI / Anthropic API key
+| What | Details |
+|------|---------|
+| **Docker Engine 24+** with **Compose v2** | Required for Docker install — `docker compose` (no hyphen) |
+| Python 3.11+ | Only needed for native install |
+| LLM provider | Ollama (local, no key), OpenAI, or Anthropic |
+
+The Docker image (`python:3.12-slim`) is multi-arch — runs on **x86_64 and ARM64 (Raspberry Pi 5)**.
 
 ---
 
-## Installation
-
-### Native (Linux / macOS / Windows)
-
-**Linux / macOS**
-```bash
-git clone https://github.com/S2K7x/Trion
-cd Trion/trion-agent
-./install.sh
-```
-
-**Windows**
-```powershell
-git clone https://github.com/S2K7x/Trion
-cd Trion/trion-agent
-./install.ps1
-```
-
-The install script:
-1. Installs Python dependencies
-2. Copies `config.toml.example` → `config.toml` (permissions set to 600 automatically)
-3. Registers a daily 07:00 run via systemd timer (Linux), LaunchAgent (macOS), or Scheduled Task (Windows)
-
-### Docker
-
-The agent stack runs two containers that share a local `data/` volume:
-
-| Container | Role | Description |
-|-----------|------|-------------|
-| `trion-agent-dashboard` | Web UI | FastAPI dashboard on port 8080 |
-| `trion-agent-scanner` | Scheduler | Runs daily scans and writes results to `data/` |
+## Quick start — Docker
 
 ```bash
 cd trion-agent
-cp config.toml.example config.toml   # edit LLM, notifications, schedule
+cp config.toml.example config.toml   # edit: set LLM provider, Slack webhook, schedule
 docker compose up -d --build
 ```
 
-The dashboard is available at `http://localhost:8080`. The scanner starts immediately and will run at the time configured in `config.toml` under `[agent] schedule`.
+- Web dashboard → `http://localhost:8080`
+- Scanner runs at the time set in `config.toml` under `[agent] schedule` (default: 07:00)
 
 To stop:
 ```bash
@@ -112,7 +88,7 @@ docker compose logs -f dashboard    # web UI logs
 docker compose logs -f agent        # scanner logs
 ```
 
-> **Note:** `config.toml` is mounted read-only into both containers. Edit it on the host and restart to apply changes. The `data/` directory is a bind-mount — scan results persist on the host between container restarts.
+> **config.toml is mounted read-only.** Edit it on the host and run `docker compose restart` to apply changes. The `data/` directory is a bind-mount — scan results persist on the host between container restarts.
 
 ---
 
@@ -152,12 +128,6 @@ The dashboard (`agent_ui.py`) is a FastAPI app that reads the same `data/` files
 | `/api/logs/stream` | `GET` — server-sent events log tail |
 
 **Auth:** single password set in `config.toml` under `[ui] password`. JWT session cookie, 24h lifetime.
-
-To start the dashboard standalone (without the scheduler):
-```bash
-python3 agent_ui.py
-# → http://localhost:8080
-```
 
 ---
 
@@ -217,6 +187,29 @@ When `commands` is set, the built-in list is replaced entirely. Commands contain
 
 ---
 
+## Alternative: native install (Linux / macOS / Windows)
+
+If you prefer running the agent as a system service (systemd timer, LaunchAgent, Task Scheduler):
+
+**Linux / macOS**
+```bash
+cd trion-agent
+./install.sh
+```
+
+**Windows**
+```powershell
+cd trion-agent
+./install.ps1
+```
+
+The install script:
+1. Installs Python dependencies into a virtual environment
+2. Copies `config.toml.example` → `config.toml` (permissions set to 600)
+3. Registers a daily 07:00 run via systemd timer (Linux), LaunchAgent (macOS), or Scheduled Task (Windows)
+
+---
+
 ## Security notes
 
 - `config.toml` permissions: `600` (set automatically by `install.sh`; mounted read-only in Docker)
@@ -224,6 +217,7 @@ When `commands` is set, the built-in list is replaced entirely. Commands contain
 - The LLM receives only diffs, never full file contents
 - Baseline is never deleted — overwritten only, preserving audit trail
 - Shell injection protection applied to all user-defined commands
+- Docker image runs as non-root user (UID 1001)
 
 ---
 

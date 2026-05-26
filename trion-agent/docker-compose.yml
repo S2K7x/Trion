@@ -1,3 +1,15 @@
+version: "3.8"
+
+# trion-agent — two-container stack
+#
+# IMPORTANT : copier config.toml avant de démarrer :
+#   cp config.toml.example config.toml
+#   # éditer config.toml (LLM provider, Slack webhook, schedule…)
+#   docker compose up -d --build
+#
+# Les données de scan persistent dans ./data/ sur l'hôte entre les redémarrages.
+# Modifier config.toml sur l'hôte et relancer pour appliquer les changements.
+
 services:
 
   dashboard:
@@ -10,6 +22,8 @@ services:
       - ./config.toml:/app/config.toml:ro
     restart: unless-stopped
     command: python3 agent_ui.py
+    networks:
+      - agent_net
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/login"]
       interval: 30s
@@ -25,3 +39,15 @@ services:
       - ./config.toml:/app/config.toml:ro
     restart: unless-stopped
     command: python3 agent.py
+    networks:
+      - agent_net
+    healthcheck:
+      test: ["CMD-SHELL", "test -d /app/data"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+networks:
+  agent_net:
+    driver: bridge

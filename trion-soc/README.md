@@ -14,8 +14,9 @@ Receives Wazuh security events through n8n, enriches IOCs automatically, and dis
   <img src="https://img.shields.io/badge/Next.js-14-black?logo=next.js" />
   <img src="https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white" />
   <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3ecf8e?logo=supabase&logoColor=white" />
-  <img src="https://img.shields.io/badge/Vercel-deployable-black?logo=vercel" />
   <img src="https://img.shields.io/badge/Docker-ready-2496ed?logo=docker&logoColor=white" />
+  <img src="https://img.shields.io/badge/ARM64-RPi5-c51a4a?logo=raspberrypi&logoColor=white" />
+  <img src="https://img.shields.io/badge/Vercel-deployable-black?logo=vercel" />
   <img src="https://img.shields.io/badge/Part%20of-Trion-f85149" />
 </p>
 
@@ -36,74 +37,60 @@ Receives Wazuh security events through n8n, enriches IOCs automatically, and dis
 
 | What | Why |
 |------|-----|
+| **Docker Engine 24+** with **Compose v2** | Required — `docker compose` (no hyphen) |
 | [Supabase](https://supabase.com) account | Stores alerts — free tier is enough |
 | n8n instance | Receives Wazuh webhooks and feeds Supabase |
-| Node.js 18+ | Only needed for local dev mode |
-| Docker | Only needed for the container deployment |
+
+All images are multi-arch — runs on **x86_64 and ARM64 (Raspberry Pi 5)**.
 
 ---
 
-## Three ways to run it
+## Quick start — Docker
 
-### Option 1 — Local dev (quickest to start)
-
-Run the script from the repo root — it configures everything interactively:
-
-```bash
-# From Trion/
-./install.sh --mode dev
-```
-
-Or do it manually:
+Starts the dashboard and n8n together in containers.
+Run from the `trion-soc/` directory:
 
 ```bash
-cd trion-soc
 cp .env.example .env.local    # open .env.local and fill in your values
-npm install
-npm run dev
-```
-
-Dashboard available at `http://localhost:3000`.
-
----
-
-### Option 2 — Full Docker (recommended for a home lab or server)
-
-Starts the dashboard and n8n together in containers:
-
-```bash
-# From Trion/
-./install.sh --mode full
-```
-
-Alternatively:
-
-```bash
-cp trion-soc/.env.example trion-soc/.env.local   # fill in your values
-docker compose -f docker-compose.soc.yaml up -d --build
+docker compose up -d --build
 ```
 
 - Dashboard → `http://localhost:3000`
 - n8n → `http://localhost:5678`
 
-To stop: `docker compose -f docker-compose.soc.yaml down`
+To stop:
+```bash
+docker compose down
+```
 
----
+To view logs:
+```bash
+docker compose logs -f dashboard
+docker compose logs -f n8n
+```
 
-### Option 3 — Vercel (public deployment)
+### n8n only (dashboard on Vercel)
 
-1. Import the repo on [vercel.com](https://vercel.com) → **Add New Project**
-2. Set **Root Directory** to `trion-soc`
-3. Add the environment variables listed in the next section
-4. Click **Deploy**
+If you deploy the dashboard to Vercel and only need n8n locally:
 
-No build command needed — Vercel detects Next.js automatically.
+```bash
+docker compose up -d n8n
+```
+
+### n8n production (PostgreSQL + Redis + Cloudflare Tunnel)
+
+For a home lab or server where you want a robust n8n with queue mode:
+
+```bash
+cp .env.n8n.example .env.n8n    # fill in all values
+docker compose -f docker-compose.prod.yml --env-file .env.n8n up -d
+```
 
 ---
 
 ## Environment variables
 
-Copy `trion-soc/.env.example` to `trion-soc/.env.local` and fill in the values.
+Copy `.env.example` to `.env.local` and fill in the values.
 For Vercel, add them under **Project Settings → Environment Variables**.
 
 | Variable | Required | How to get it |
@@ -170,6 +157,36 @@ Full details: [`../wazuh/`](../wazuh/) · [`../docs/architecture.md`](../docs/ar
 
 ---
 
+## Alternative: Vercel (public deployment)
+
+1. Import the repo on [vercel.com](https://vercel.com) → **Add New Project**
+2. Set **Root Directory** to `trion-soc`
+3. Add the environment variables listed above
+4. Click **Deploy**
+
+No build command needed — Vercel detects Next.js automatically.
+n8n must be reachable from Vercel — use `docker-compose.prod.yml` with a Cloudflare Tunnel, or any public URL.
+
+---
+
+## Alternative: local dev (npm)
+
+For rapid iteration on the dashboard code:
+
+```bash
+cp .env.example .env.local    # fill in your values
+npm install
+npm run dev
+# → http://localhost:3000
+```
+
+n8n still needs to run separately:
+```bash
+docker compose -f docker-compose.dev.yml up -d
+```
+
+---
+
 ## Data flow
 
 ```
@@ -208,6 +225,9 @@ trion-soc/
 │   └── config-crypto.ts      # AES-256-GCM encryption for stored API keys
 ├── middleware.ts             # JWT auth check on every route except /login
 ├── supabase/migrations/      # SQL migration files
+├── docker-compose.yml        # n8n + dashboard (default)
+├── docker-compose.dev.yml    # n8n only — dev/SQLite
+├── docker-compose.prod.yml   # n8n production (PostgreSQL + Redis + Cloudflare)
 └── Dockerfile                # Production image (node:20-alpine, standalone output)
 ```
 
@@ -223,4 +243,4 @@ trion-soc/
 | Charts | Recharts |
 | Database client | Supabase JS v2 |
 | Auth | JWT via jose — single password, HttpOnly cookie, 24h session |
-| Deployment | Vercel · Docker (standalone Next.js output) |
+| Deployment | Docker · Vercel (standalone Next.js output) |
